@@ -384,19 +384,25 @@ def thermal_synchrotron_lnu(time, logn0, v0, logr0, eta, logepse, logepsb, xi, p
     normalised_frequency_denom = 3.0*theta**2*qe*bfield/(4.0*np.pi*electron_mass*speed_of_light)
     x = frequency / normalised_frequency_denom
 
-    emissivity_pl = _emissivity_pl(x=x, nism=ne, bfield=bfield, theta=theta, xi=xi, p=p, z_cool=z_cool)
-
-    emissivity_thermal = _emissivity_thermal(x=x, nism=ne, bfield=bfield, theta=theta, z_cool=z_cool)
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        emissivity_pl = _emissivity_pl(x=x, nism=ne, bfield=bfield, theta=theta, xi=xi, p=p, z_cool=z_cool)
+        emissivity_thermal = _emissivity_thermal(x=x, nism=ne, bfield=bfield, theta=theta, z_cool=z_cool)
+    emissivity_pl = np.nan_to_num(emissivity_pl, nan=0.0, posinf=0.0, neginf=0.0)
+    emissivity_thermal = np.nan_to_num(emissivity_thermal, nan=0.0, posinf=0.0, neginf=0.0)
 
     emissivity = emissivity_thermal + emissivity_pl
 
-    tau = _tau_nu(x=x, nism=ne, radius=radius, bfield=bfield, theta=theta, xi=xi, p=p, z_cool=z_cool)
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        tau = _tau_nu(x=x, nism=ne, radius=radius, bfield=bfield, theta=theta, xi=xi, p=p, z_cool=z_cool)
+    tau = np.nan_to_num(tau, nan=0.0, posinf=0.0, neginf=0.0)
 
-    lnu = 4.0 * np.pi ** 2 * radius ** 3 * emissivity * (1e0 - np.exp(-tau)) / tau
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        lnu = 4.0 * np.pi ** 2 * radius ** 3 * emissivity * (1e0 - np.exp(-tau)) / tau
     if np.size(x) > 1:
         lnu[tau < 1e-10] = (4.0 * np.pi ** 2 * radius ** 3 * emissivity)[tau < 1e-10]
     elif tau < 1e-10:
         lnu = 4.0 * np.pi ** 2 * radius ** 3 * emissivity
+    lnu = np.nan_to_num(lnu, nan=0.0, posinf=0.0, neginf=0.0)
     return lnu
 
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2021ApJ...923L..14M/abstract')
@@ -810,4 +816,4 @@ def thermal_synchrotron_v2_fluxdensity(time, redshift, bG_sh, log_Mdot_vwind, n_
     dl = cosmology.luminosity_distance(redshift).cgs.value
     lnu = thermal_synchrotron_v2_lnu(time, bG_sh, log_Mdot_vwind, n_ism, logepse, logepsb, xi, p, **new_kwargs)
     flux_density = lnu / (4.0 * np.pi * dl**2)/1.0e-26 * (1 + redshift)
-    return flux_density           
+    return flux_density

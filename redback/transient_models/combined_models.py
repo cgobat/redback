@@ -317,8 +317,16 @@ def afterglow_kilonova_sed(time, redshift, av, **model_kwargs):
                                                         **model_kwargs)
         elif 'frequency' in model_kwargs.keys():
             lambda_to_eval = nu_to_lambda(model_kwargs['frequency'])
-            flux_density = np.array([np.interp(lambda_to_eval, lambda_observer_frame, spectrum.value, left=0, right=0) for spectrum in spectra])
-            flux_density_interp = np.interp(time,time_observer_frame,flux_density)
+            lambda_to_eval = np.asarray(lambda_to_eval)
+            if lambda_to_eval.shape == ():
+                lambda_to_eval = np.ones(len(time)) * lambda_to_eval
+            flux_interpolator = RegularGridInterpolator(
+                (time_observer_frame, lambda_observer_frame),
+                spectra.value,
+                bounds_error=False,
+                fill_value=0.0
+            )
+            flux_density_interp = flux_interpolator(np.column_stack([time, lambda_to_eval]))
             if model_kwargs['output_format'] == 'flux_density':
                 return flux_density_interp
             elif model_kwargs['output_format'] == 'magnitude':
