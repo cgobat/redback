@@ -1,5 +1,4 @@
-# In this example, we show how to use the csm_constraints function to apply constraints to the model.
-# This works the same way for all other inbuilt constraints
+# In this example, we show how to use built-in prior constraints.
 
 import bilby.core.prior
 from bilby.core.prior import Constraint
@@ -9,23 +8,22 @@ import pandas as pd
 
 import redback
 
-# Import the constraints function
+# Import the constraints function only if you want custom bounds.
 from redback.constraints import csm_constraints
 
 
 model = 'csm_interaction'
-model_priors = redback.priors.get_priors(model=model)
 function = redback.model_library.all_models_dict[model]
 
-# Create a PriorDict object with the constraints function provided as a conversion_function
-priors = bilby.core.prior.PriorDict(conversion_function=csm_constraints)
-# We update this prior instance with the model priors loaded above.
-priors.update(model_priors)
+# The recommended path is to ask redback to attach the built-in constraints.
+priors = redback.priors.get_priors(model=model, constraint=True)
 
-# We now apply our constraints. Please refer to the csm constraints function for more information on the constraints
-priors['shock_time'] = Constraint(0.6, 0.8)
-priors['photosphere_constraint_1'] = Constraint(0, 1)
-priors['photosphere_constraint_2'] = Constraint(0, 0.5)
+# If you want custom constraint bounds instead, construct the PriorDict manually.
+custom_priors = bilby.core.prior.PriorDict(conversion_function=csm_constraints)
+custom_priors.update(redback.priors.get_priors(model=model))
+custom_priors['shock_time'] = Constraint(0.6, 0.8)
+custom_priors['photosphere_constraint_1'] = Constraint(0, 1)
+custom_priors['photosphere_constraint_2'] = Constraint(0, 0.5)
 
 # Please keep in mind that if you sample with fixed parameters that are required in the constraints function,
 # you will get an error. You will need to sample with these parameters as well, or modify the constraints function yourself.

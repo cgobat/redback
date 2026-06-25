@@ -43,7 +43,37 @@ Constrained priors
 Sometimes there are some additional constraints on the priors that are difficult to parameterise or not on a sampled parameter.
 
 For example, the rotational energy of a neutron star cannot be exceeded in a super luminous supernova. Or that a numerical surrogate is only valid in a certain domain etc.
-In redback, we have written several of these constraints which can be used by simply loading the particular constraint from redback.constraints and passing them to the bilby prior dictionary.
+In redback, we have written several of these constraints. For models with built-in constraint metadata, the simplest way to use them is to pass :code:`constraint=True` to :code:`get_priors`.
+
+For example,
+
+.. code:: python
+
+    import redback
+
+    model = "csm_nickel"
+    priors = redback.priors.get_priors(model=model, constraint=True)
+    samples = priors.sample(1000)
+
+This attaches the relevant :code:`bilby` :code:`Constraint` priors and the corresponding :code:`conversion_function` automatically. If a model has no built-in constraints configured, :code:`get_priors(..., constraint=True)` returns the ordinary prior and logs a warning.
+
+Built-in constraint loading is currently available for several model classes, including:
+
+- magnetar and superluminous supernova models with rotational-energy constraints,
+- TDE fallback and cooling-envelope models with physical-domain constraints,
+- CSM-interaction supernova models with shock-time/photosphere constraints,
+- kilonova ejecta-relation models with derived ejecta-mass and velocity domain constraints,
+- EOS-derived kilonova models with EOS and derived-ejecta constraints.
+
+You can inspect or modify the returned prior like any other :code:`bilby` prior dictionary.
+
+.. code:: python
+
+    priors = redback.priors.get_priors("gaussianrise_cooling_envelope", constraint=True)
+    priors["redshift"] = 0.075
+    samples = priors.sample(1000)
+
+For custom constraints, or if you want different bounds from the built-in configuration, construct the prior dictionary manually by loading the particular constraint from :code:`redback.constraints` and passing it to the :code:`bilby` prior dictionary.
 
 For example,
 
@@ -63,8 +93,7 @@ Then define our priors on all other parameters in the normal way. You can then c
     priors.sample(1000)
 
 You can implement your own constraints by following the constraint templates and :code:`bilby` `documentation <https://lscsoft.docs.ligo.org/bilby/prior.html>`_.
-We note that the default priors do not have constraints active so analysis with constraints must construct the prior dictionary as above.
-This new prior dictionary can be updated to include the default prior via
+If you are manually constructing a constrained prior dictionary, it can be updated to include the default prior via
 
 .. code:: python
 
