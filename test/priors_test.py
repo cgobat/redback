@@ -205,6 +205,48 @@ class TestGetPriors(unittest.TestCase):
             # Check that from_file was called (even if it raised FileNotFoundError)
             self.assertTrue(mock_from_file.called)
 
+    def test_get_priors_with_csm_constraints(self):
+        """Test that get_priors can attach configured CSM constraints."""
+        result = priors.get_priors('csm_nickel', constraint=True)
+
+        self.assertIs(result.conversion_function, priors.redback.constraints.csm_constraints)
+        for key in ['shock_time', 'photosphere_constraint_1', 'photosphere_constraint_2']:
+            self.assertIn(key, result)
+
+    def test_get_priors_with_kilonova_ejecta_relation_constraints(self):
+        """Test that get_priors can attach derived ejecta-relation constraints."""
+        result = priors.get_priors('one_component_nsbh_ejecta_relation', constraint=True)
+
+        self.assertIs(result.conversion_function, priors.redback.constraints.one_component_nsbh_ejecta_relation_constraints)
+        for key in ['ejecta_mej_min', 'ejecta_mej_max', 'ejecta_vej_min', 'ejecta_vej_max']:
+            self.assertIn(key, result)
+
+    def test_constrained_kilonova_ejecta_relation_samples_barnes_kasen_domain(self):
+        """Derived constrained KN relation priors should sample the Barnes-Kasen domain."""
+        result = priors.get_priors('one_component_nsbh_ejecta_relation', constraint=True)
+        sample = result.sample(5)
+        converted = result.conversion_function(sample)
+
+        for key in ['ejecta_mej_min', 'ejecta_mej_max', 'ejecta_vej_min', 'ejecta_vej_max']:
+            self.assertTrue(np.all(converted[key] >= 0))
+            self.assertTrue(np.all(converted[key] <= 1))
+
+    def test_band_function_high_energy_prior_samples_physical_indices(self):
+        """Band high-energy priors should keep the Band-function break physical."""
+        result = priors.get_priors('band_function_high_energy')
+        sample = result.sample(100)
+
+        self.assertTrue(np.all(sample['alpha'] > -2))
+        self.assertTrue(np.all(sample['beta'] < sample['alpha']))
+
+    def test_get_priors_with_cooling_envelope_constraints(self):
+        """Test that get_priors can attach cooling-envelope constraints."""
+        result = priors.get_priors('gaussianrise_cooling_envelope', constraint=True)
+
+        self.assertIs(result.conversion_function, priors.redback.constraints.cooling_envelope_constraints)
+        for key in ['eta_min_ratio', 'beta_max_ratio', 'gaussian_stitching_tail']:
+            self.assertIn(key, result)
+
 
 class TestGetPromptPriors(unittest.TestCase):
     """Test get_prompt_priors function"""

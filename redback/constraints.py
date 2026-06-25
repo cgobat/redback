@@ -1,8 +1,14 @@
 import numpy as np
 import redback.eos as eos
+import redback.ejecta_relations as ejr
 from redback.constants import *
 from redback.utils import calc_tfb
 from scipy.interpolate import interp1d
+
+BARNES_KASEN_MASS_MIN = 1e-3
+BARNES_KASEN_MASS_MAX = 1e-1
+BARNES_KASEN_VELOCITY_MIN = 0.1
+BARNES_KASEN_VELOCITY_MAX = 0.4
 
 def slsn_constraint(parameters):
     """
@@ -129,6 +135,40 @@ def gaussianrise_tde_constraints(parameters):
     converted_parameters['tfb_max'] = converted_parameters['peak_time']/tfb_obs
     return converted_parameters
 
+
+def cooling_envelope_constraints(parameters):
+    """
+    Constraint on cooling-envelope TDE parameters.
+
+    The eta and beta bounds follow the cooling-envelope example. Gaussian-rise variants also require
+    that the Gaussian value at the fallback stitching point is finite enough to normalise.
+    """
+    converted_parameters = parameters.copy()
+    ms = parameters['stellar_mass']
+    mbh6 = parameters['mbh_6']
+    etamin = 0.01 * (ms ** (-7. / 15.)) * (mbh6 ** (2. / 3.))
+    betamax = 12. * (ms ** (7. / 15.)) * (mbh6 ** (-2. / 3.))
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        eta_min_ratio = etamin / parameters['eta']
+        beta_max_ratio = parameters['beta'] / betamax
+    converted_parameters['eta_min_ratio'] = np.nan_to_num(
+        eta_min_ratio, nan=np.inf, posinf=np.inf, neginf=np.inf)
+    converted_parameters['beta_max_ratio'] = np.nan_to_num(
+        beta_max_ratio, nan=np.inf, posinf=np.inf, neginf=np.inf)
+
+    if 'sigma_t' in parameters:
+        redshift = parameters.get('redshift', 0.)
+        xi = parameters.get('xi', 1.)
+        binding_energy_const = parameters.get('binding_energy_const', 0.8)
+        with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+            transition_time = xi * calc_tfb(binding_energy_const, mbh6, ms) * (1. + redshift)
+            peak_time = parameters['peak_time'] * day_to_s
+            sigma_t = parameters['sigma_t'] * day_to_s
+            gaussian_stitching_tail = np.abs(transition_time - peak_time) / sigma_t
+        converted_parameters['gaussian_stitching_tail'] = np.nan_to_num(
+            gaussian_stitching_tail, nan=np.inf, posinf=np.inf, neginf=np.inf)
+    return converted_parameters
+
 def nuclear_burning_constraints(parameters):
     """
     Constraint so that nuclear burning energy is greater than kinetic energy.
@@ -185,22 +225,23 @@ def csm_constraints(parameters):
     kappa = parameters['kappa']
     r0 = parameters['r0']
     if 'vej' not in parameters:
-        vej = (parameters['ek'] / (0.3 * mej * solar_mass)) ** 0.5 / km_cgs
+        vej = np.sqrt(2.0 * parameters['ek'] / (mej * solar_mass)) / km_cgs
     else:
         vej = parameters['vej']
-    if hasattr(parameters['mej'], "__len__"):
-        nn = parameters.get('nn', np.ones(len(mej)) * 8.)
-        delta = parameters.get('delta', np.ones(len(mej)))
-    else:
-        nn = parameters.get('nn', 12.)
-        delta = parameters.get('delta', 0.)
+    nn = parameters.get('nn', np.ones_like(np.asarray(mej, dtype=float)) * 12.)
+    delta = parameters.get('delta', np.ones_like(np.asarray(mej, dtype=float)))
     eta = parameters['eta']
     rho = parameters['rho']
 
-    mej = mej * solar_mass
-    csm_mass = csm_mass * solar_mass
-    r0 = r0 * au_cgs
-    vej = vej * km_cgs
+    mej = np.asarray(mej, dtype=float) * solar_mass
+    csm_mass = np.asarray(csm_mass, dtype=float) * solar_mass
+    kappa = np.asarray(kappa, dtype=float)
+    r0 = np.asarray(r0, dtype=float) * au_cgs
+    vej = np.asarray(vej, dtype=float) * km_cgs
+    nn = np.asarray(nn, dtype=float)
+    delta = np.asarray(delta, dtype=float)
+    eta = np.asarray(eta, dtype=float)
+    rho = np.asarray(rho, dtype=float)
     Esn = 3. * vej ** 2 * mej / 10.
 
     ns = [6, 7, 8, 9, 10, 12, 14]
@@ -210,34 +251,42 @@ def csm_constraints(parameters):
     Bf_func = interp1d(ns, Bfs)
     A_func = interp1d(ns, As)
 
-    Bf = Bf_func(nn)
-    AA = A_func(nn)
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        Bf = Bf_func(nn)
+        AA = A_func(nn)
 
-    qq = rho * r0 ** eta
-    # outer CSM shell radius
-    radius_csm = ((3.0 - eta) / (4.0 * np.pi * qq) * csm_mass + r0 ** (3.0 - eta)) ** (
-            1.0 / (3.0 - eta))
-    # photosphere radius
-    r_photosphere = abs((-2.0 * (1.0 - eta) / (3.0 * kappa * qq) +
-                         radius_csm ** (1.0 - eta)) ** (1.0 / (1.0 - eta)))
+        qq = rho * r0 ** eta
+        # outer CSM shell radius
+        radius_csm = ((3.0 - eta) / (4.0 * np.pi * qq) * csm_mass + r0 ** (3.0 - eta)) ** (
+                1.0 / (3.0 - eta))
+        # photosphere radius
+        r_photosphere = abs((-2.0 * (1.0 - eta) / (3.0 * kappa * qq) +
+                             radius_csm ** (1.0 - eta)) ** (1.0 / (1.0 - eta)))
 
-    # mass of the optically thick CSM (tau > 2/3).
-    mass_csm_threshold = np.abs(4.0 * np.pi * qq / (3.0 - eta) * (
-            r_photosphere ** (3.0 - eta) - r0 ** (3.0 - eta)))
+        # mass of the optically thick CSM (tau > 2/3).
+        mass_csm_threshold = np.abs(4.0 * np.pi * qq / (3.0 - eta) * (
+                r_photosphere ** (3.0 - eta) - r0 ** (3.0 - eta)))
 
-    g_n = (1.0 / (4.0 * np.pi * (nn - delta)) * (
-            2.0 * (5.0 - delta) * (nn - 5.0) * Esn) ** ((nn - 3.) / 2.0) / (
-                   (3.0 - delta) * (nn - 3.0) * mej) ** ((nn - 5.0) / 2.0))
+        g_n = (1.0 / (4.0 * np.pi * (nn - delta)) * (
+                2.0 * (5.0 - delta) * (nn - 5.0) * Esn) ** ((nn - 3.) / 2.0) / (
+                       (3.0 - delta) * (nn - 3.0) * mej) ** ((nn - 5.0) / 2.0))
 
-    tshock = ((radius_csm - r0) / Bf / (AA * g_n / qq) ** (
-                       1. / (nn - eta))) ** ((nn - eta) / (nn - 3))
+        tshock = ((radius_csm - r0) / Bf / (AA * g_n / qq) ** (
+                           1. / (nn - eta))) ** ((nn - eta) / (nn - 3))
 
-    diffusion_time = np.sqrt(2. * kappa * mass_csm_threshold / (vej * 13.7 * 3.e10))
+        diffusion_time = np.sqrt(2. * kappa * mass_csm_threshold / (vej * 13.7 * 3.e10))
+        shock_time = diffusion_time / tshock
+        photosphere_constraint_1 = r_photosphere / radius_csm
+        photosphere_constraint_2 = r0 / r_photosphere
+
+    shock_time = np.nan_to_num(shock_time, nan=np.inf, posinf=np.inf, neginf=np.inf)
+    photosphere_constraint_1 = np.nan_to_num(photosphere_constraint_1, nan=np.inf, posinf=np.inf, neginf=np.inf)
+    photosphere_constraint_2 = np.nan_to_num(photosphere_constraint_2, nan=np.inf, posinf=np.inf, neginf=np.inf)
     # ensure shock crossing time is greater than diffusion time
-    converted_parameters['shock_time'] = diffusion_time/tshock
+    converted_parameters['shock_time'] = shock_time
     # ensure photospheric radius is within the csm i.e., r_photo < radius_csm and r_photo > r0
-    converted_parameters['photosphere_constraint_1'] = r_photosphere/radius_csm
-    converted_parameters['photosphere_constraint_2'] = r0/r_photosphere
+    converted_parameters['photosphere_constraint_1'] = photosphere_constraint_1
+    converted_parameters['photosphere_constraint_2'] = photosphere_constraint_2
     return converted_parameters
 
 def piecewise_polytrope_eos_constraints(parameters):
@@ -257,6 +306,145 @@ def piecewise_polytrope_eos_constraints(parameters):
 
     maximum_speed_of_sound = calc_speed_of_sound(log_p=log_p, gamma_1=gamma_1, gamma_2=gamma_2, gamma_3=gamma_3)
     converted_parameters['maximum_speed_of_sound'] = maximum_speed_of_sound
+    return converted_parameters
+
+
+def _maybe_scalar(array):
+    array = np.asarray(array)
+    if array.shape == ():
+        return array.item()
+    return array
+
+
+def _polytrope_two_component_bns_ejecta_quantities(mass_1, mass_2, log_p, gamma_1, gamma_2, gamma_3, zeta):
+    central_pressure = np.logspace(np.log10(4e32), np.log10(2.5e35), 70)
+    inputs = np.broadcast_arrays(
+        np.asarray(mass_1), np.asarray(mass_2), np.asarray(log_p),
+        np.asarray(gamma_1), np.asarray(gamma_2), np.asarray(gamma_3), np.asarray(zeta))
+    shape = inputs[0].shape
+    output_shape = shape if shape else (1,)
+    dynamical_mej = np.empty(output_shape, dtype=float)
+    disk_wind_mej = np.empty(output_shape, dtype=float)
+    ejecta_velocity = np.empty(output_shape, dtype=float)
+
+    for index in np.ndindex(output_shape):
+        array_index = index if shape else ()
+        try:
+            eos_model = eos.PiecewisePolytrope(
+                log_p=inputs[2][array_index],
+                gamma_1=inputs[3][array_index],
+                gamma_2=inputs[4][array_index],
+                gamma_3=inputs[5][array_index])
+            mtov = eos_model.maximum_mass()
+            masses = np.array([inputs[0][array_index], inputs[1][array_index]])
+            tidal_deformability, _ = eos_model.lambda_of_mass(central_pressure=central_pressure, mass=masses)
+            ejecta_relation = ejr.TwoComponentBNS(
+                mass_1=inputs[0][array_index], mass_2=inputs[1][array_index],
+                lambda_1=tidal_deformability[0], lambda_2=tidal_deformability[1],
+                mtov=mtov, zeta=inputs[6][array_index])
+            dynamical_mej[index] = ejecta_relation.dynamical_mej
+            disk_wind_mej[index] = ejecta_relation.disk_wind_mej
+            ejecta_velocity[index] = ejecta_relation.ejecta_velocity
+        except Exception:
+            dynamical_mej[index] = np.nan
+            disk_wind_mej[index] = np.nan
+            ejecta_velocity[index] = np.nan
+
+    if not shape:
+        return dynamical_mej[0], disk_wind_mej[0], ejecta_velocity[0]
+    return _maybe_scalar(dynamical_mej.reshape(shape)), _maybe_scalar(disk_wind_mej.reshape(shape)), \
+        _maybe_scalar(ejecta_velocity.reshape(shape))
+
+
+def _safe_constraint_ratio(numerator, denominator):
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        ratio = np.asarray(numerator, dtype=float) / np.asarray(denominator, dtype=float)
+    return np.nan_to_num(ratio, nan=np.inf, posinf=np.inf, neginf=np.inf)
+
+
+def _add_barnes_kasen_ejecta_constraints(converted_parameters, prefix, mej, vej):
+    converted_parameters[f'{prefix}_mej_min'] = _safe_constraint_ratio(BARNES_KASEN_MASS_MIN, mej)
+    converted_parameters[f'{prefix}_mej_max'] = _safe_constraint_ratio(mej, BARNES_KASEN_MASS_MAX)
+    converted_parameters[f'{prefix}_vej_min'] = _safe_constraint_ratio(BARNES_KASEN_VELOCITY_MIN, vej)
+    converted_parameters[f'{prefix}_vej_max'] = _safe_constraint_ratio(vej, BARNES_KASEN_VELOCITY_MAX)
+
+
+def one_component_bns_ejecta_relation_constraints(parameters):
+    """Constrain BNS ejecta-relation outputs to the Barnes-Kasen calibration domain."""
+    converted_parameters = parameters.copy()
+    ejecta_relation = ejr.OneComponentBNSNoProjection(
+        mass_1=parameters['mass_1'], mass_2=parameters['mass_2'],
+        lambda_1=parameters['lambda_1'], lambda_2=parameters['lambda_2'])
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'ejecta', ejecta_relation.ejecta_mass, ejecta_relation.ejecta_velocity)
+    return converted_parameters
+
+
+def one_component_bns_ejecta_relation_projection_constraints(parameters):
+    """Constrain projected BNS ejecta-relation outputs to the Barnes-Kasen calibration domain."""
+    converted_parameters = parameters.copy()
+    ejecta_relation = ejr.OneComponentBNSProjection(
+        mass_1=parameters['mass_1'], mass_2=parameters['mass_2'],
+        lambda_1=parameters['lambda_1'], lambda_2=parameters['lambda_2'])
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'ejecta', ejecta_relation.ejecta_mass, ejecta_relation.ejecta_velocity)
+    return converted_parameters
+
+
+def two_component_bns_ejecta_relation_constraints(parameters):
+    """Constrain two-component BNS ejecta-relation outputs to the Barnes-Kasen calibration domain."""
+    converted_parameters = parameters.copy()
+    ejecta_relation = ejr.TwoComponentBNS(
+        mass_1=parameters['mass_1'], mass_2=parameters['mass_2'],
+        lambda_1=parameters['lambda_1'], lambda_2=parameters['lambda_2'],
+        mtov=parameters['mtov'], zeta=parameters['zeta'])
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'dynamical_ejecta',
+        ejecta_relation.dynamical_mej, ejecta_relation.ejecta_velocity)
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'disk_wind_ejecta',
+        ejecta_relation.disk_wind_mej, parameters['vej_2'])
+    return converted_parameters
+
+
+def one_component_nsbh_ejecta_relation_constraints(parameters):
+    """Constrain NSBH ejecta-relation outputs to the Barnes-Kasen calibration domain."""
+    converted_parameters = parameters.copy()
+    ejecta_relation = ejr.OneComponentNSBH(
+        mass_bh=parameters['mass_bh'], mass_ns=parameters['mass_ns'],
+        chi_bh=parameters['chi_bh'], lambda_ns=parameters['lambda_ns'])
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'ejecta', ejecta_relation.ejecta_mass, ejecta_relation.ejecta_velocity)
+    return converted_parameters
+
+
+def two_component_nsbh_ejecta_relation_constraints(parameters):
+    """Constrain two-component NSBH ejecta-relation outputs to the Barnes-Kasen calibration domain."""
+    converted_parameters = parameters.copy()
+    ejecta_relation = ejr.TwoComponentNSBH(
+        mass_bh=parameters['mass_bh'], mass_ns=parameters['mass_ns'],
+        chi_bh=parameters['chi_bh'], lambda_ns=parameters['lambda_ns'], zeta=parameters['zeta'])
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'dynamical_ejecta',
+        ejecta_relation.dynamical_mej, ejecta_relation.ejecta_velocity)
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'disk_wind_ejecta',
+        ejecta_relation.disk_wind_mej, parameters['vej_2'])
+    return converted_parameters
+
+
+def polytrope_eos_two_component_bns_constraints(parameters):
+    """Constrain EOS and derived BNS ejecta outputs for polytrope-eos kilonova models."""
+    converted_parameters = piecewise_polytrope_eos_constraints(parameters)
+    dynamical_mej, disk_wind_mej, ejecta_velocity = _polytrope_two_component_bns_ejecta_quantities(
+        mass_1=parameters['mass_1'], mass_2=parameters['mass_2'],
+        log_p=parameters['log_p'], gamma_1=parameters['gamma_1'],
+        gamma_2=parameters['gamma_2'], gamma_3=parameters['gamma_3'],
+        zeta=parameters['zeta'])
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'dynamical_ejecta', dynamical_mej, ejecta_velocity)
+    _add_barnes_kasen_ejecta_constraints(
+        converted_parameters, 'disk_wind_ejecta', disk_wind_mej, parameters['vej_2'])
     return converted_parameters
 
 @np.vectorize

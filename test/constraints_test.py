@@ -295,6 +295,131 @@ class TestCSMConstraints(unittest.TestCase):
         self.assertTrue(hasattr(result['shock_time'], '__len__') or
                        isinstance(result['shock_time'], (int, float, np.number)))
 
+    def test_csm_constraint_scalar_and_length_one_array_match_defaults(self):
+        """The CSM constraint defaults should not depend on sample shape."""
+        parameters = {
+            'mej': 10.0,
+            'csm_mass': 1.0,
+            'kappa': 0.1,
+            'r0': 100.0,
+            'vej': 5000.0,
+            'eta': 0.5,
+            'rho': 1e-14
+        }
+        scalar_result = constraints.csm_constraints(parameters)
+        array_parameters = {key: np.array([value]) for key, value in parameters.items()}
+        array_result = constraints.csm_constraints(array_parameters)
+
+        for key in ['shock_time', 'photosphere_constraint_1', 'photosphere_constraint_2']:
+            np.testing.assert_allclose(scalar_result[key], array_result[key][0])
+
+    def test_csm_constraint_broadcasts_fixed_values_with_sampled_nn_delta(self):
+        """Fixed scalar kappa/r0 values should broadcast across sampled CSM arrays."""
+        parameters = {
+            'mej': np.array([10.0, 15.0]),
+            'csm_mass': np.array([1.0, 2.0]),
+            'kappa': 0.34,
+            'r0': 100.0,
+            'vej': np.array([5000.0, 8000.0]),
+            'eta': np.array([0.5, 1.0]),
+            'rho': np.array([1e-14, 5e-14]),
+            'nn': np.array([8.0, 12.0]),
+            'delta': np.array([0.0, 1.0])
+        }
+        result = constraints.csm_constraints(parameters)
+
+        for key in ['shock_time', 'photosphere_constraint_1', 'photosphere_constraint_2']:
+            self.assertEqual(np.shape(result[key]), (2,))
+            self.assertTrue(np.all(np.isfinite(result[key])))
+
+    def test_csm_constraint_returns_rejectable_values_for_invalid_samples(self):
+        """Pathological CSM samples should not produce NaN constraint values."""
+        parameters = {
+            'mej': 0.0030976313516303715,
+            'csm_mass': 0.00023473720624880357,
+            'ek': 7.867879885236966e51,
+            'eta': 0.31834817913487723,
+            'rho': 1.2431552383024176e-15,
+            'r0': 71.17425373342279,
+            'kappa': 0.26256530921692656
+        }
+        result = constraints.csm_constraints(parameters)
+
+        for key in ['shock_time', 'photosphere_constraint_1', 'photosphere_constraint_2']:
+            self.assertFalse(np.any(np.isnan(result[key])))
+
+
+class TestKilonovaEjectaRelationConstraints(unittest.TestCase):
+    """Test kilonova ejecta-relation domain constraints."""
+
+    def test_one_component_nsbh_ejecta_relation_constraints(self):
+        parameters = {
+            'mass_bh': 5.0,
+            'mass_ns': 1.4,
+            'chi_bh': 0.9,
+            'lambda_ns': 800.0
+        }
+        result = constraints.one_component_nsbh_ejecta_relation_constraints(parameters)
+
+        for key in ['ejecta_mej_min', 'ejecta_mej_max', 'ejecta_vej_min', 'ejecta_vej_max']:
+            self.assertIn(key, result)
+            self.assertTrue(np.all(np.isfinite(result[key])))
+
+    def test_two_component_bns_ejecta_relation_constraints(self):
+        parameters = {
+            'mass_1': 1.35,
+            'mass_2': 1.30,
+            'lambda_1': 600.0,
+            'lambda_2': 700.0,
+            'mtov': 2.2,
+            'zeta': 0.2,
+            'vej_2': 0.2
+        }
+        result = constraints.two_component_bns_ejecta_relation_constraints(parameters)
+
+        for key in [
+            'dynamical_ejecta_mej_min', 'dynamical_ejecta_mej_max',
+            'dynamical_ejecta_vej_min', 'dynamical_ejecta_vej_max',
+            'disk_wind_ejecta_mej_min', 'disk_wind_ejecta_mej_max',
+            'disk_wind_ejecta_vej_min', 'disk_wind_ejecta_vej_max'
+        ]:
+            self.assertIn(key, result)
+            self.assertTrue(np.all(np.isfinite(result[key])))
+
+
+class TestCoolingEnvelopeConstraints(unittest.TestCase):
+    """Test cooling-envelope TDE constraints."""
+
+    def test_cooling_envelope_constraints_add_domain_ratios(self):
+        parameters = {
+            'stellar_mass': 1.0,
+            'mbh_6': 1.0,
+            'eta': 0.1,
+            'beta': 2.0
+        }
+        result = constraints.cooling_envelope_constraints(parameters)
+
+        self.assertIn('eta_min_ratio', result)
+        self.assertIn('beta_max_ratio', result)
+        self.assertTrue(np.isfinite(result['eta_min_ratio']))
+        self.assertTrue(np.isfinite(result['beta_max_ratio']))
+
+    def test_gaussian_tail_constraint_rejects_underflowing_stitching(self):
+        parameters = {
+            'redshift': 2.567877768220058,
+            'peak_time': 38.9806277500574,
+            'sigma_t': 19.491419465518803,
+            'mbh_6': 9.331707719561335,
+            'stellar_mass': 4.881164962346675,
+            'eta': 0.04933967484280144,
+            'alpha': 0.11303522640434999,
+            'beta': 1.0793171463784845
+        }
+        result = constraints.cooling_envelope_constraints(parameters)
+
+        self.assertIn('gaussian_stitching_tail', result)
+        self.assertGreater(result['gaussian_stitching_tail'], 35)
+
 
 class TestPiecewisePolytropeEOSConstraints(unittest.TestCase):
     """Test piecewise_polytrope_eos_constraints function"""
