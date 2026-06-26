@@ -1,5 +1,6 @@
-from redback.transient import afterglow, kilonova, prompt, supernova, tde, transient, spectral
+from redback.transient import afterglow, fxt, kilonova, prompt, supernova, tde, transient, spectral
 from redback.transient.afterglow import Afterglow, LGRB, SGRB
+from redback.transient.fxt import FXT
 from redback.transient.kilonova import Kilonova
 from redback.transient.prompt import PromptTimeSeries
 from redback.transient.supernova import Supernova
@@ -10,4 +11,4 @@ from redback.transient.spectral import CountsSpectrumTransient
 TRANSIENT_DICT = dict(
     afterglow=Afterglow, lgrb=LGRB, sgrb=SGRB, kilonova=Kilonova, prompt=PromptTimeSeries, supernova=Supernova,
     tde=TDE, transient=Transient, spectrum=Spectrum, counts_spectrum=CountsSpectrumTransient,
-    opticaltransient=OpticalTransient)
+    opticaltransient=OpticalTransient, fxt=FXT)

@@ -1482,6 +1482,33 @@ class TestSpectralSampler(unittest.TestCase):
 
         mock_sampler.assert_called_once()
 
+    @mock.patch("bilby.run_sampler")
+    def test_fit_model_routes_fxt_as_count_spectrum(self, mock_sampler):
+        """fit_model routes FXT through the spectral likelihood path."""
+        mock_result = mock.MagicMock()
+        mock_result.posterior = pd.DataFrame({"amplitude": [1.0, 2.0]})
+        mock_sampler.return_value = mock_result
+
+        with mock.patch(
+            "redback.get_data.directory.open_access_directory_structure",
+            return_value=mock.MagicMock(directory_path="fxt/"),
+        ):
+            fxt = redback.transient.FXT(dataset=self.dataset, name="fxt_route")
+
+        fit_model(
+            transient=fxt,
+            model=_simple_spectral_model,
+            outdir=self.outdir,
+            label="fxt_route",
+            prior=self.prior,
+            plot=False,
+            clean=True,
+        )
+
+        mock_sampler.assert_called_once()
+        likelihood_arg = mock_sampler.call_args.kwargs.get("likelihood")
+        self.assertIsInstance(likelihood_arg, PoissonSpectralLikelihood)
+
     # ------------------------------------------------------------------
     # Statistic selection
     # ------------------------------------------------------------------

@@ -226,6 +226,87 @@ class TestTransient(unittest.TestCase):
         # self.transient.plot_data()
 
 
+class TestFXT(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.energy_edges = np.array([0.3, 1.0, 3.0, 10.0])
+        self.counts = np.array([10, 20, 30])
+        self.exposure = 100.0
+
+    def test_initialization_count_spectrum(self):
+        transient = redback.transient.FXT.from_counts(
+            name="FXT001", counts=self.counts, exposure=self.exposure,
+            energy_edges_keV=self.energy_edges, instrument="XRT", energy_range=(0.3, 10.0))
+
+        self.assertEqual("FXT001", transient.name)
+        self.assertEqual("spectrum_counts", transient.data_mode)
+        self.assertTrue(np.array_equal(self.counts, transient.dataset.counts))
+        self.assertEqual(self.exposure, transient.dataset.exposure)
+        self.assertEqual("XRT", transient.instrument)
+        self.assertEqual((0.3, 10.0), transient.energy_range)
+        self.assertEqual(0.3, transient.dataset.active_energy_min)
+        self.assertEqual(10.0, transient.dataset.active_energy_max)
+        self.assertEqual("fxt/", transient.directory_structure.directory_path)
+
+    def test_count_rate_density_converts_to_counts(self):
+        rate_density = np.array([1.0, 2.0, 3.0])
+        transient = redback.transient.FXT.from_count_rate_density(
+            name="FXT001", count_rate_density=rate_density, exposure=self.exposure,
+            energy_edges_keV=self.energy_edges)
+
+        widths = self.energy_edges[1:] - self.energy_edges[:-1]
+        expected_counts = rate_density * self.exposure * widths
+        np.testing.assert_allclose(expected_counts, transient.dataset.counts)
+
+    def test_count_rate_density_with_background_exposure(self):
+        rate_density = np.array([1.0, 2.0, 3.0])
+        background_rate_density = np.array([0.1, 0.2, 0.3])
+        background_exposure = 50.0
+        transient = redback.transient.FXT.from_count_rate_density(
+            name="FXT001", count_rate_density=rate_density, exposure=self.exposure,
+            energy_edges_keV=self.energy_edges, background_rate_density=background_rate_density,
+            bkg_exposure=background_exposure)
+
+        widths = self.energy_edges[1:] - self.energy_edges[:-1]
+        expected_background_counts = background_rate_density * background_exposure * widths
+        np.testing.assert_allclose(expected_background_counts, transient.dataset.counts_bkg)
+        self.assertEqual(background_exposure, transient.dataset.bkg_exposure)
+
+    def test_count_rate_density_plots_counts_per_second_per_keV(self):
+        import matplotlib.pyplot as plt
+
+        transient = redback.transient.FXT.from_count_rate_density(
+            name="FXT001", count_rate_density=np.array([1.0, 2.0, 3.0]),
+            exposure=self.exposure, energy_edges_keV=self.energy_edges)
+
+        axes = transient.plot_data(show=False, save=False)
+        self.assertEqual("Counts/s/keV", axes.get_ylabel())
+        plt.close(axes.figure)
+
+    def test_invalid_counts_shape_raises(self):
+        with self.assertRaises(ValueError):
+            redback.transient.FXT.from_counts(
+                name="FXT001", counts=np.array([10, 20]), exposure=self.exposure,
+                energy_edges_keV=self.energy_edges)
+
+    def test_invalid_direct_dataset_raises(self):
+        from redback.spectral.dataset import SpectralDataset
+
+        dataset = SpectralDataset(
+            counts=np.array([10.0, 20.0]),
+            exposure=self.exposure,
+            energy_edges_keV=self.energy_edges,
+        )
+        with self.assertRaises(ValueError):
+            redback.transient.FXT(dataset=dataset, name="FXT001")
+
+    def test_transient_dict_contains_fxt(self):
+        self.assertIs(redback.transient.TRANSIENT_DICT["fxt"], redback.transient.FXT)
+
+    def test_fxt_has_no_broker_data_getter(self):
+        self.assertNotIn("fxt", redback.get_data.TRANSIENT_TYPES)
+
+
 class TestOpticalTransient(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -590,6 +671,29 @@ class TestAfterglow(unittest.TestCase):
     def test_stripped_name(self):
         expected = "070809"
         self.assertEqual(expected, self.sgrb._stripped_name)
+
+    def test_generic_afterglow_preserves_non_grb_name(self):
+        afterglow = redback.transient.afterglow.Afterglow(
+            time=self.time, time_err=self.time_err, flux=self.y, flux_err=self.y_err,
+            data_mode=self.data_mode, name="AT2020xnd",
+            use_phase_model=self.use_phase_model)
+        self.assertEqual("AT2020xnd", afterglow.name)
+        self.assertEqual("afterglow/", afterglow.directory_structure.directory_path)
+
+    def test_sgrb_normalises_grb_name(self):
+        sgrb = redback.transient.afterglow.SGRB(
+            time=self.time, time_err=self.time_err, flux=self.y, flux_err=self.y_err,
+            data_mode=self.data_mode, name="070809",
+            use_phase_model=self.use_phase_model)
+        self.assertEqual("GRB070809", sgrb.name)
+        self.assertIn("GRBData/afterglow", sgrb.directory_structure.directory_path)
+
+    def test_sgrb_normalises_grb_name_with_space(self):
+        sgrb = redback.transient.afterglow.SGRB(
+            time=self.time, time_err=self.time_err, flux=self.y, flux_err=self.y_err,
+            data_mode=self.data_mode, name="GRB 070809",
+            use_phase_model=self.use_phase_model)
+        self.assertEqual("GRB070809", sgrb.name)
 
     def test_truncate(self):
         expected_x = np.array([1.0, 2.0])

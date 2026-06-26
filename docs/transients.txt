@@ -18,13 +18,14 @@ Specific transient object
 
 These parent classes are inherited by some transient specific classes, which provide additional functionality.
 
-- Afterglow: afterglow of a gamma-ray burst
+- Afterglow: generic afterglow data
 
-    - SGRB/LGRB:  short and long gamma-ray bursts
+    - SGRB/LGRB: short and long gamma-ray bursts, including GRB-specific naming, metadata, and Swift directory conventions
 - Kilonova: For kilonovae
 - Prompt: For prompt gamma-ray bursts
 - Supernova: For supernovae of different varieties
 - TDE: For tidal disruption events
+- FXT: For fast X-ray transient count spectra with user-provided data
 
 These classes come with additional functionality and lookup tables which provide metadata useful for further analysis, such as redshift, T90, start time, etc.
 They also allow other processing such as converting flux to luminosity.
@@ -40,6 +41,7 @@ Data modes
 The data modes available for each transient are
 
 - Afterglow: luminosity, flux, flux_density, magnitude
+- FXT: spectrum_counts
 - Kilonova: flux_density, magnitude, flux
 - Prompt: counts, time tagged events
 - Supernova: flux_density, magnitude, luminosity, flux
@@ -96,6 +98,17 @@ Which loads the SGRB, TDE, prompt, and Supernova transient objects with the data
 Note that in the supernova object, we set :code:`phase_model=True`.
 This sets the time attribute of the class to the modified julian date time of the observations.
 This is specifically for situations when users want to also sample the start time of the transient.
+
+FXT objects are not connected to a broker or catalog data getter in :code:`redback`.
+No current :code:`redback.get_data` backend can fetch FXT data, so construct :code:`redback.transient.FXT`
+directly from local, private, simulated, or externally downloaded spectra.
+
+FXT uses the same count-spectrum machinery as :code:`CountsSpectrumTransient`, so the stored data are counts,
+exposure, and energy-bin edges rather than a generic time-series count rate. If your data are already
+counts per second per keV, use :code:`FXT.from_count_rate_density`; redback converts those values back to
+counts using the exposure and energy-bin widths before fitting with Poisson spectral likelihoods.
+Do not pass background-subtracted rates to this constructor if you intend to use C-stat or W-stat; pass
+source-region counts/rates and optional background counts/rates separately.
 
 Loading private/simulated data
 -------------------------
