@@ -1,3 +1,4 @@
+from dataclasses import replace
 from importlib.metadata import entry_points
 
 from redback.transient_models import afterglow_models, \
@@ -6,6 +7,7 @@ from redback.transient_models import afterglow_models, \
     prompt_models, shock_powered_models, supernova_models, tde_models, integrated_flux_afterglow_models, combined_models, \
     general_synchrotron_models, spectral_models, stellar_interaction_models
 
+from redback.model_metadata import BUILTIN_MODEL_METADATA, coerce_model_metadata
 from redback.utils import get_functions_dict, logger
 
 modules = [afterglow_models, extinction_models, fireball_models,
@@ -20,7 +22,9 @@ all_models_dict = dict()
 base_models_dict = dict()
 modules_dict = dict()
 plugin_module_model_types = dict()
+model_metadata_dict = dict(BUILTIN_MODEL_METADATA)
 builtin_module_names = {module.__name__.split('.')[-1] for module in modules}
+_DEFAULT_METADATA_SENTINEL = object()
 for module in modules:
     models_dict = get_functions_dict(module)
     modules_dict.update(models_dict)
@@ -47,6 +51,29 @@ def _get_plugin_model_types(module):
         return {raw_model_types}
 
 
+def _get_plugin_model_metadata(module):
+    """Return model metadata declared by a plugin module."""
+    raw_metadata = getattr(module, 'redback_model_metadata', None)
+    if raw_metadata is None:
+        return {}
+    if not isinstance(raw_metadata, dict):
+        raise TypeError("redback_model_metadata must be a dictionary keyed by model name.")
+    return {
+        name: coerce_model_metadata(name, metadata)
+        for name, metadata in raw_metadata.items()
+    }
+
+
+def get_model_metadata(model_name, default=_DEFAULT_METADATA_SENTINEL):
+    """Return structured metadata for a model function."""
+    try:
+        return model_metadata_dict[model_name]
+    except KeyError:
+        if default is not _DEFAULT_METADATA_SENTINEL:
+            return default
+        raise
+
+
 def _load_plugin_modules():
     """Load plugin model modules registered via entry points."""
     for group, is_base in (('redback.model.modules', False), ('redback.model.base_modules', True)):
@@ -64,6 +91,7 @@ def _load_plugin_modules():
                 plugin_funcs = plugin_models.get(leaf, {})
 
                 # Built-in models win on collision
+                loaded_plugin_model_names = set()
                 for k, v in plugin_funcs.items():
                     if k in all_models_dict:
                         logger.warning(
@@ -72,8 +100,26 @@ def _load_plugin_modules():
                         )
                     else:
                         all_models_dict[k] = v
+                        loaded_plugin_model_names.add(k)
                         if is_base:
                             base_models_dict[k] = v
+
+                try:
+                    plugin_metadata = _get_plugin_model_metadata(module)
+                except (TypeError, ValueError) as e:
+                    logger.warning(
+                        f"Invalid plugin metadata from '{ep.name}'. Skipping metadata: {e}")
+                    plugin_metadata = {}
+                for k, metadata in plugin_metadata.items():
+                    if k in loaded_plugin_model_names:
+                        if metadata.source_module is None:
+                            metadata = replace(metadata, source_module=ep.name)
+                        model_metadata_dict[k] = metadata
+                    elif k not in plugin_funcs:
+                        logger.warning(
+                            f"Plugin metadata for '{k}' from '{ep.name}' has no matching plugin model. "
+                            f"Skipping metadata."
+                        )
 
                 # Key by ep.name to avoid collisions between plugins with the same module leaf name
                 modules_dict[ep.name] = plugin_funcs
