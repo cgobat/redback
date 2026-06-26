@@ -4,9 +4,18 @@ from redback.utils import logger
 import astropy.constants as cc
 import astropy.units as uu
 from scipy.interpolate import interp1d
+import warnings
+
+
+def _import_lalsimulation():
+    """Import lalsimulation while suppressing its IPython stdio redirection warning."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Wswiglal-redir-stdio.*", category=UserWarning)
+        import lalsimulation as lalsim
+    return lalsim
 
 try:
-    import lalsimulation as lalsim
+    lalsim = _import_lalsimulation()
 except ModuleNotFoundError as e:
     logger.warning(e)
     logger.warning('lalsimulation is not installed. Some EOS based models will not work.'
@@ -149,6 +158,5 @@ class PiecewisePolytrope(object):
 
 
         return Lambda, max_mass
-
 
 

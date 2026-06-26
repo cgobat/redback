@@ -1,6 +1,8 @@
 import unittest
+import builtins
 import numpy as np
 from unittest.mock import patch, MagicMock
+import warnings
 import redback.constraints as constraints
 
 
@@ -45,6 +47,26 @@ class TestSLSNConstraint(unittest.TestCase):
         self.assertEqual(parameters, original)
         # Result should be different object
         self.assertIsNot(result, parameters)
+
+
+class TestEOSImports(unittest.TestCase):
+    """Test optional EOS dependency imports."""
+
+    def test_lalsimulation_import_suppresses_swiglal_redirect_warning(self):
+        real_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "lalsimulation":
+                warnings.warn("Wswiglal-redir-stdio: redirection enabled", UserWarning)
+                return MagicMock()
+            return real_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                constraints.eos._import_lalsimulation()
+
+        self.assertFalse(any("Wswiglal-redir-stdio" in str(w.message) for w in caught))
 
 
 class TestBasicMagnetarPoweredSNConstraints(unittest.TestCase):
