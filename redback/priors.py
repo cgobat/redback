@@ -221,7 +221,8 @@ def get_gaussian_priors(times, y, yerr, **kwargs):
 
 def get_skew_gaussian_priors(times, y, yerr, **kwargs):
     priors = get_gaussian_priors(times=times, y=y, yerr=yerr, **kwargs)
-    for latex_label, part in zip([r"$\sigma_{\mathrm{rise}}$" r"$\sigma_{\mathrm{rise}}$"], ['rise', 'fall']):
+    for latex_label, part in zip(
+            [r"$\sigma_{\mathrm{rise}}$", r"$\sigma_{\mathrm{fall}}$"], ['rise', 'fall']):
         priors[f'sigma_{part}'] = bilby.core.prior.LogUniform(
             minimum=priors['sigma'].minimum, maximum=priors['sigma'].maximum,
             name=f"sigma_{part}", latex_label=latex_label)
@@ -231,7 +232,8 @@ def get_skew_gaussian_priors(times, y, yerr, **kwargs):
 
 def get_skew_exponential_priors(times, y, yerr, **kwargs):
     priors = get_gaussian_priors(times=times, y=y, yerr=yerr, **kwargs)
-    for latex_label, part in zip([r"$\tau_{\mathrm{rise}}$" r"$\tau_{\mathrm{rise}}$"], ['rise', 'fall']):
+    for latex_label, part in zip(
+            [r"$\tau_{\mathrm{rise}}$", r"$\tau_{\mathrm{fall}}$"], ['rise', 'fall']):
         priors[f'tau_{part}'] = bilby.core.prior.LogUniform(
             minimum=priors['sigma'].minimum, maximum=priors['sigma'].maximum,
             name=f"tau_{part}", latex_label=latex_label)
@@ -252,4 +254,5 @@ def get_fred_priors(times, y, yerr, **kwargs):
 def get_fred_extended_priors(times, y, yerr, **kwargs):
     priors = get_fred_priors(times=times, y=y, yerr=yerr, **kwargs)
     priors['gamma'] = bilby.core.prior.LogUniform(minimum=1e-3, maximum=1e3, name=r"$\gamma$")
-    priors['nu'] = bilby.core.prior.LogUniform(minimum=1e-3, maximum=1e3, name=r"$\nu")
+    priors['nu'] = bilby.core.prior.LogUniform(minimum=1e-3, maximum=1e3, name=r"$\nu$")
+    return priors

@@ -58,8 +58,7 @@ class TestGetSkewGaussianPriors(unittest.TestCase):
         # Check that required parameters are present
         self.assertIn('amplitude', result)
         self.assertIn('sigma_rise', result)
-        # Note: Due to bug in source (missing comma in zip), only sigma_rise is created
-        # self.assertIn('sigma_fall', result)
+        self.assertIn('sigma_fall', result)
         self.assertIn('t_0', result)
 
         # sigma should be removed (replaced by sigma_rise)
@@ -83,8 +82,7 @@ class TestGetSkewExponentialPriors(unittest.TestCase):
         # Check that required parameters are present
         self.assertIn('amplitude', result)
         self.assertIn('tau_rise', result)
-        # Note: Due to bug in source (missing comma in zip), only tau_rise is created
-        # self.assertIn('tau_fall', result)
+        self.assertIn('tau_fall', result)
         self.assertIn('t_0', result)
 
         # sigma should be removed (replaced by tau_rise)
@@ -123,10 +121,14 @@ class TestGetFredExtendedPriors(unittest.TestCase):
 
         result = priors.get_fred_extended_priors(times, y, yerr)
 
-        # Note: Function has missing return statement, returns None
-        # This is a bug in the source code
-        # self.assertIsInstance(result, PriorDict)
-        self.assertIsNone(result)
+        self.assertIsInstance(result, PriorDict)
+        self.assertIn('amplitude', result)
+        self.assertIn('tau', result)
+        self.assertIn('psi', result)
+        self.assertIn('delta', result)
+        self.assertIn('gamma', result)
+        self.assertIn('nu', result)
+        self.assertEqual(r"$\nu$", result['nu'].latex_label)
 
 
 class TestGetPriors(unittest.TestCase):
