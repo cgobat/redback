@@ -702,7 +702,7 @@ def tde_analytical_bolometric(time, l0, t_0_turn, **kwargs):
     lbol = _analytic_fallback(time=time, l0=l0, t_0=t_0_turn)
     if _interaction_process is not None:
         dense_resolution = kwargs.get("dense_resolution", 1000)
-        dense_times = np.linspace(0, time[-1] + 100, dense_resolution)
+        dense_times = np.geomspace(1e-5, time[-1] + 100, dense_resolution)
         dense_lbols = _analytic_fallback(time=dense_times, l0=l0, t_0=t_0_turn)
         interaction_class = _interaction_process(time=time, dense_times=dense_times, luminosity=dense_lbols, **kwargs)
         lbol = interaction_class.new_luminosity
@@ -1134,7 +1134,7 @@ def _tde_fallback_all_outputs(time, mbh6, mstar, tvisc, bb, eta, leddlimit, **kw
     """
     _interaction_process = kwargs.get("interaction_process", ip.Viscous)
     dense_resolution = kwargs.get("dense_resolution", 1000)
-    dense_times = np.linspace(0, time[-1] + 100, dense_resolution)
+    dense_times = np.geomspace(1e-5, time[-1] + 100, dense_resolution)
     outs = _tde_mosfit_engine(times=dense_times, mbh6=mbh6, mstar=mstar, b=bb, efficiency=eta,
                               leddlimit=leddlimit, **kwargs)
     dense_lbols = outs.luminosities
