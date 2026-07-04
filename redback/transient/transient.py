@@ -1556,11 +1556,11 @@ class OpticalTransient(Transient):
     def estimate_bb_params(self, distance: float = 1e27, bin_width: float = 1.0, min_filters: int = 3, **kwargs):
         """
         Estimate the blackbody temperature and photospheric radius as functions of time by fitting
-        a blackbody SED to the multi‑band photometry.
+        a blackbody-like SED to the multi‑band photometry.
 
         The method groups the photometric data into time bins (epochs) of width bin_width (in the
         same units as self.x, typically days). For each epoch with at least min_filters measurements
-        (from distinct filters), it fits a blackbody model to the data. When working with photometry
+        (from distinct filters), it fits an SED model to the data. When working with photometry
         provided in an effective flux density format (data_mode == "flux_density") the effective–wavelength
         approximation is used. When the data_mode is "flux" (or "magnitude") users have the option
         (via use_eff_wavelength=True) to instead use the effective wavelength approximation by converting AB
@@ -1577,6 +1577,9 @@ class OpticalTransient(Transient):
             Minimum number of measurements (from distinct filters) required in a bin to perform the fit.
             Default is 3.
         kwargs : Additional keyword arguments
+            method : str, optional, default is "blackbody"
+                SED fit to use. Options are "blackbody" and "cutoff_blackbody". The alias "methods"
+                is also accepted for backwards compatibility with exploratory usage.
             maxfev : int, optional, default is 1000
             T_init : float, optional, default is 1e4, used as the initial guess for the fit.
             R_init : float, optional, default is 1e15, used as the initial guess for the fit.
@@ -1585,6 +1588,16 @@ class OpticalTransient(Transient):
                 the effective wavelength approximation is used. In that case the AB magnitudes are
                 converted to flux densities via redback.utils.calc_flux_density_from_ABmag.
                 If False, full bandpass integration is used.
+            cutoff_wavelength : float, optional, default is 3000 Å
+                Cutoff wavelength used when method="cutoff_blackbody".
+            absorption_index : float, optional, default is 1
+                Power-law suppression index blueward of cutoff_wavelength when
+                method="cutoff_blackbody". The model multiplies the blackbody flux density by
+                (wavelength / cutoff_wavelength)**absorption_index below the cutoff.
+            fit_cutoff_wavelength : bool, optional, default is False
+                If True, fit cutoff_wavelength along with temperature and radius.
+            fit_absorption_index : bool, optional, default is False
+                If True, fit absorption_index along with temperature and radius.
 
         Returns
         -------
@@ -1595,12 +1608,27 @@ class OpticalTransient(Transient):
               - radius : best-fit photospheric radii (cm),
               - temp_err : 1σ uncertainties on the temperatures,
               - radius_err : 1σ uncertainties on the radii.
+            For method="cutoff_blackbody", the DataFrame also contains cutoff_wavelength,
+            cutoff_wavelength_err, absorption_index, absorption_index_err, and method columns.
             Returns None if insufficient data are available.
         """
         from scipy.optimize import curve_fit
         import astropy.units as uu
         import numpy as np
         import pandas as pd
+
+        method = kwargs.pop('method', kwargs.pop('methods', 'blackbody'))
+        method = method.lower()
+        if method in ['bb', 'blackbody']:
+            method = 'blackbody'
+        elif method in ['cutoff', 'cutoff_bb', 'cutoff_blackbody']:
+            method = 'cutoff_blackbody'
+        else:
+            raise ValueError("Unknown blackbody fit method '{}'. Use 'blackbody' or 'cutoff_blackbody'.".format(method))
+
+        if method == 'cutoff_blackbody':
+            return self._estimate_cutoff_blackbody_params(
+                distance=distance, bin_width=bin_width, min_filters=min_filters, **kwargs)
 
         # Get the filtered photometry.
         # Assumes self.get_filtered_data() returns (time, time_err, y, y_err)
@@ -1802,15 +1830,250 @@ class OpticalTransient(Transient):
         redback.utils.logger.info('Masking epochs with likely wrong extractions')
         df_bb = df_bb[df_bb['temp_err'] / df_bb['temperature'] < 1]
         df_bb = df_bb[df_bb['radius_err'] / df_bb['radius'] < 1]
+        df_bb['method'] = method
+        return df_bb
+
+    @staticmethod
+    def _cutoff_blackbody_flux_density_mjy(frequency, temperature, radius, distance, redshift,
+                                           cutoff_wavelength, absorption_index):
+        import astropy.units as uu
+
+        model_flux_cgs = redback.sed.blackbody_to_flux_density(
+            temperature, radius, distance, frequency) * (1 + redshift)
+        wavelength = redback.utils.nu_to_lambda(frequency)
+        suppression = np.ones_like(np.asarray(wavelength, dtype=float))
+        mask = wavelength < cutoff_wavelength
+        suppression[mask] = (wavelength[mask] / cutoff_wavelength) ** absorption_index
+        model_flux_cgs *= suppression
+        return (model_flux_cgs / (1e-26 * uu.erg / uu.s / uu.cm ** 2 / uu.Hz)).value
+
+    @staticmethod
+    def _cutoff_blackbody_luminosity_fraction(temperature, cutoff_wavelength, absorption_index):
+        from scipy.integrate import quad
+
+        cutoff_cm = cutoff_wavelength * redback.constants.angstrom_cgs
+        x_cut = redback.constants.planck * redback.constants.speed_of_light / (
+            cutoff_cm * redback.constants.boltzmann_constant * temperature)
+
+        def _inverse_expm1_for_quad(x):
+            if x > 700:
+                return 0.0
+            return 1.0 / np.expm1(x)
+
+        def redward_integrand(x):
+            if x <= 0.0:
+                return 0.0
+            return x ** 3 * _inverse_expm1_for_quad(x)
+
+        def blueward_integrand(x):
+            if x <= 0.0:
+                return 0.0
+            return x ** (3.0 - absorption_index) * _inverse_expm1_for_quad(x)
+
+        with np.errstate(over='ignore', under='ignore', invalid='ignore', divide='ignore'):
+            redward_flux, _ = quad(redward_integrand, 0.0, x_cut, epsabs=0.0, epsrel=1e-8, limit=200)
+            blueward_flux, _ = quad(blueward_integrand, x_cut, np.inf, epsabs=0.0, epsrel=1e-8, limit=200)
+        return (15.0 / np.pi ** 4) * (redward_flux + x_cut ** absorption_index * blueward_flux)
+
+    def _estimate_cutoff_blackbody_params(self, distance: float = 1e27, bin_width: float = 1.0,
+                                          min_filters: int = 3, **kwargs):
+        """
+        Fit temperature and radius using a cutoff blackbody in the effective-wavelength approximation.
+        """
+        from scipy.optimize import curve_fit
+        import numpy as np
+        import pandas as pd
+
+        time_data, _, flux_data, flux_err_data = self.get_filtered_data()
+
+        redback.utils.logger.info("Estimating cutoff blackbody parameters for {}.".format(self.name))
+        redback.utils.logger.info("Using data mode = {}".format(self.data_mode))
+
+        if hasattr(self, "data_mode") and self.data_mode in ['flux', 'magnitude']:
+            band_data = self.filtered_sncosmo_bands
+            redback.utils.logger.warning(
+                "Using effective wavelength approximation for cutoff_blackbody fits in {} mode.".format(
+                    self.data_mode))
+            if self.data_mode == 'magnitude':
+                from redback.utils import abmag_to_flux_density_and_error_inmjy
+                flux_data, flux_err_data = abmag_to_flux_density_and_error_inmjy(flux_data, flux_err_data)
+                freq_data = redback.utils.bands_to_frequency(band_data)
+            else:
+                from redback.utils import bandpass_flux_to_flux_density, bands_to_effective_width
+                redback.utils.logger.warning(
+                    "Ensure filters.csv has the correct bandpass effective widths for your filter.")
+                effective_widths = bands_to_effective_width(band_data)
+                freq_data = redback.utils.bands_to_frequency(band_data)
+                flux_data, flux_err_data = bandpass_flux_to_flux_density(flux_data, flux_err_data, effective_widths)
+        else:
+            redback.utils.logger.info("Using effective wavelength approximation for {}".format(self.data_mode))
+            freq_data = self.filtered_frequencies
+
+        T_init = kwargs.get('T_init', 1e4)
+        R_init = kwargs.get('R_init', 1e15)
+        maxfev = kwargs.get('maxfev', 1000)
+        cutoff_wavelength = kwargs.get('cutoff_wavelength', kwargs.get('lambda_cut', 3000.0))
+        absorption_index = kwargs.get('absorption_index', 1.0)
+        fit_cutoff_wavelength = kwargs.get('fit_cutoff_wavelength', False)
+        fit_absorption_index = kwargs.get('fit_absorption_index', False)
+        log_temperature_bounds = kwargs.get('log_temperature_bounds', (2.0, 6.0))
+        log_radius_bounds = kwargs.get('log_radius_bounds', (10.0, 18.0))
+        cutoff_wavelength_bounds = kwargs.get('cutoff_wavelength_bounds', (1000.0, 10000.0))
+        absorption_index_bounds = kwargs.get('absorption_index_bounds', (0.0, 3.99))
+
+        if absorption_index < 0:
+            raise ValueError("absorption_index must be non-negative for cutoff_blackbody fits.")
+        if fit_absorption_index and absorption_index_bounds[0] < 0:
+            raise ValueError("absorption_index_bounds must be non-negative for cutoff_blackbody fits.")
+
+        sort_idx = np.argsort(time_data)
+        time_data = np.asarray(time_data)[sort_idx]
+        flux_data = np.asarray(flux_data)[sort_idx]
+        flux_err_data = np.asarray(flux_err_data)[sort_idx]
+        freq_data = np.asarray(freq_data)[sort_idx]
+
+        redshift = np.nan_to_num(self.redshift)
+        if redshift <= 0.:
+            raise ValueError("Redshift must be provided to perform K-correction.")
+        freq_data, _ = redback.utils.calc_kcorrected_properties(frequency=freq_data, redshift=redshift, time=0.)
+
+        p0 = [np.log10(T_init), np.log10(R_init)]
+        lower_bounds = [log_temperature_bounds[0], log_radius_bounds[0]]
+        upper_bounds = [log_temperature_bounds[1], log_radius_bounds[1]]
+        if fit_cutoff_wavelength:
+            p0.append(cutoff_wavelength)
+            lower_bounds.append(cutoff_wavelength_bounds[0])
+            upper_bounds.append(cutoff_wavelength_bounds[1])
+        if fit_absorption_index:
+            p0.append(absorption_index)
+            lower_bounds.append(absorption_index_bounds[0])
+            upper_bounds.append(absorption_index_bounds[1])
+
+        p0 = np.asarray(p0, dtype=float)
+        lower_bounds = np.asarray(lower_bounds, dtype=float)
+        upper_bounds = np.asarray(upper_bounds, dtype=float)
+        p0 = np.clip(p0, lower_bounds, upper_bounds)
+
+        def cutoff_model(freq, *params):
+            logT, logR = params[:2]
+            param_idx = 2
+            cutoff = cutoff_wavelength
+            alpha = absorption_index
+            if fit_cutoff_wavelength:
+                cutoff = params[param_idx]
+                param_idx += 1
+            if fit_absorption_index:
+                alpha = params[param_idx]
+            return self._cutoff_blackbody_flux_density_mjy(
+                frequency=freq, temperature=10 ** logT, radius=10 ** logR, distance=distance,
+                redshift=redshift, cutoff_wavelength=cutoff, absorption_index=alpha)
+
+        epoch_times = []
+        temperatures = []
+        radii = []
+        temp_errs = []
+        radius_errs = []
+        cutoff_wavelengths = []
+        cutoff_wavelength_errs = []
+        absorption_indices = []
+        absorption_index_errs = []
+
+        t_min = np.min(time_data)
+        t_max = np.max(time_data)
+        bins = np.arange(t_min, t_max + bin_width, bin_width)
+        required_filters = max(min_filters, len(p0) + 1)
+        redback.utils.logger.info("Number of bins: {}".format(len(bins)))
+
+        bins_with_enough = [i for i in range(len(bins) - 1)
+                            if np.sum((time_data >= bins[i]) & (time_data < bins[i + 1])) >= required_filters]
+        if len(bins_with_enough) == 0:
+            redback.utils.logger.warning(
+                "No time bins have at least {} measurements. Fitting cannot proceed.".format(required_filters))
+            redback.utils.logger.warning(
+                "Try generating more data through GPs, increasing bin widths, or using fewer fitted SED parameters.")
+            return None
+
+        for i in range(len(bins) - 1):
+            mask = (time_data >= bins[i]) & (time_data < bins[i + 1])
+            if np.sum(mask) < required_filters:
+                continue
+            t_epoch = np.mean(time_data[mask])
+            try:
+                popt, pcov = curve_fit(
+                    cutoff_model,
+                    freq_data[mask],
+                    flux_data[mask],
+                    sigma=flux_err_data[mask],
+                    p0=p0,
+                    bounds=(lower_bounds, upper_bounds),
+                    absolute_sigma=True,
+                    maxfev=maxfev
+                )
+            except Exception as e:
+                redback.utils.logger.warning(f"Cutoff blackbody fit failed for epoch {i}: {e}")
+                redback.utils.logger.warning(f"Skipping epoch {i} with time {t_epoch:.2f} days.")
+                continue
+
+            perr = np.sqrt(np.diag(pcov))
+            logT_fit, logR_fit = popt[:2]
+            T_fit = 10 ** logT_fit
+            R_fit = 10 ** logR_fit
+            T_err = np.log(10) * T_fit * perr[0]
+            R_err = np.log(10) * R_fit * perr[1]
+
+            param_idx = 2
+            cutoff_fit = cutoff_wavelength
+            cutoff_err = 0.0
+            alpha_fit = absorption_index
+            alpha_err = 0.0
+            if fit_cutoff_wavelength:
+                cutoff_fit = popt[param_idx]
+                cutoff_err = perr[param_idx]
+                param_idx += 1
+            if fit_absorption_index:
+                alpha_fit = popt[param_idx]
+                alpha_err = perr[param_idx]
+
+            epoch_times.append(t_epoch)
+            temperatures.append(T_fit)
+            radii.append(R_fit)
+            temp_errs.append(T_err)
+            radius_errs.append(R_err)
+            cutoff_wavelengths.append(cutoff_fit)
+            cutoff_wavelength_errs.append(cutoff_err)
+            absorption_indices.append(alpha_fit)
+            absorption_index_errs.append(alpha_err)
+
+        if len(epoch_times) == 0:
+            redback.utils.logger.warning("No epochs with sufficient data yielded a successful cutoff blackbody fit.")
+            return None
+
+        df_bb = pd.DataFrame({
+            'epoch_times': epoch_times,
+            'temperature': temperatures,
+            'radius': radii,
+            'temp_err': temp_errs,
+            'radius_err': radius_errs,
+            'cutoff_wavelength': cutoff_wavelengths,
+            'cutoff_wavelength_err': cutoff_wavelength_errs,
+            'absorption_index': absorption_indices,
+            'absorption_index_err': absorption_index_errs,
+            'method': 'cutoff_blackbody'
+        })
+
+        redback.utils.logger.info('Masking epochs with likely wrong cutoff blackbody extractions')
+        df_bb = df_bb[df_bb['temp_err'] / df_bb['temperature'] < 1]
+        df_bb = df_bb[df_bb['radius_err'] / df_bb['radius'] < 1]
         return df_bb
 
 
     def estimate_bolometric_luminosity(self, distance: float = 1e27, bin_width: float = 1.0,
                                           min_filters: int = 3, **kwargs):
         """
-        Estimate the bolometric luminosity as a function of time by fitting the blackbody SED
-        to the multi‑band photometry and then integrating that spectrum. For each epoch the bolometric
-        luminosity is computed using the Stefan–Boltzmann law evaluated at the source:
+        Estimate the bolometric luminosity as a function of time by fitting an SED to the
+        multi‑band photometry and then integrating that spectrum. By default, this fits a
+        blackbody and computes the bolometric luminosity using the Stefan–Boltzmann law
+        evaluated at the source:
 
             L_bol = 4 π R² σ_SB T⁴
 
@@ -1818,7 +2081,7 @@ class OpticalTransient(Transient):
 
             (ΔL_bol / L_bol)² = (2 ΔR / R)² + (4 ΔT / T)².
 
-        Optionally, two corrections can be applied:
+        For method="blackbody", two corrections can optionally be applied:
 
         1. A boost–factor to “restore” missing blue flux. If a cutoff wavelength is provided via
            the keyword 'lambda_cut' (in angstroms), it is converted to centimeters and a boost factor is
@@ -1831,9 +2094,15 @@ class OpticalTransient(Transient):
 
                L_boosted = Boost × (4π R² σ_SB T⁴).
 
-        2. An extinction correction. If the bolometric extinction (A_ext, in magnitudes) is supplied via
-           the keyword 'A_ext', the luminosity will be reduced by a factor of 10^(–0.4·A_ext) to account
-           for dust extinction. (A_ext defaults to 0.)
+        For method="cutoff_blackbody", the temperature and radius are fit with a blackbody
+        whose flux density is suppressed blueward of cutoff_wavelength by
+        (wavelength / cutoff_wavelength)**absorption_index. The returned lum_bol is the
+        direct integral of that cutoff SED, while lum_bol_bb is the integral of the
+        underlying unsuppressed blackbody with the same fitted temperature and radius.
+
+        An extinction correction can be applied for either method. If the bolometric extinction
+        (A_ext, in magnitudes) is supplied via the keyword 'A_ext', the observed luminosity is
+        increased by a factor of 10^(+0.4·A_ext). (A_ext defaults to 0.)
 
         Parameters
         ----------
@@ -1846,8 +2115,15 @@ class OpticalTransient(Transient):
         kwargs : dict, optional
             Additional keyword arguments to pass to `estimate_bb_params` (e.g., maxfev, T_init, R_init,
             use_eff_wavelength, etc.). Additionally:
+        - 'method': SED fit/integration method. Options are "blackbody" and "cutoff_blackbody".
+          The alias "methods" is also accepted.
         - 'lambda_cut': If provided (in angstroms), the bolometric luminosity will be “boosted”
-          to account for missing blue flux.
+          to account for missing blue flux for method="blackbody". For method="cutoff_blackbody",
+          this is accepted as an alias for cutoff_wavelength.
+        - 'cutoff_wavelength': Cutoff wavelength in angstroms for method="cutoff_blackbody".
+        - 'absorption_index': Power-law suppression index for method="cutoff_blackbody".
+        - 'fit_cutoff_wavelength': If True, fit cutoff_wavelength in estimate_bb_params.
+        - 'fit_absorption_index': If True, fit absorption_index in estimate_bb_params.
         - 'A_ext': Bolometric extinction in magnitudes. The observed luminosity is increased by a factor
           10^(+0.4·A_ext). (Default is 0.)
 
@@ -1859,26 +2135,39 @@ class OpticalTransient(Transient):
               - temperature: Fitted blackbody temperature (K).
               - radius: Fitted photospheric radius (cm).
               - lum_bol: Derived bolometric luminosity (1e50 erg/s) computed as 4π R² σ_SB T⁴
-                         (boosted and extinction-corrected if requested).
+                         (boosted/integrated with the requested SED method and extinction-corrected if requested).
               - lum_bol_bb: Derived bolometric blackbody luminosity (1e50 erg/s) computed as 4π R² σ_SB T⁴,
-                            before applying either the boost or extinction correction.
+                            before applying either the boost or cutoff correction.
               - lum_bol_err: 1σ uncertainty on L_bol (1e50 erg/s) from error propagation.
               - time_rest_frame: Epoch time divided by (1+redshift), i.e., the rest-frame time in days.
             Returns None if no valid blackbody fits were obtained.
         """
         from redback.sed import boosted_bolometric_luminosity
 
-        # Retrieve optional lambda_cut (in angstroms) for the boost correction.
-        lambda_cut_angstrom = kwargs.pop('lambda_cut', None)
-        if lambda_cut_angstrom is not None:
-            redback.utils.logger.info("Including effects of missing flux due to line blanketing.")
-            redback.utils.logger.info(
-                "Using lambda_cut = {} Å for bolometric luminosity boost.".format(lambda_cut_angstrom))
-            # Convert lambda_cut from angstroms to centimeters (1 Å = 1e-8 cm)
-            lambda_cut = lambda_cut_angstrom * 1e-8
+        method = kwargs.pop('method', kwargs.pop('methods', 'blackbody'))
+        method = method.lower()
+        if method in ['bb', 'blackbody']:
+            method = 'blackbody'
+        elif method in ['cutoff', 'cutoff_bb', 'cutoff_blackbody']:
+            method = 'cutoff_blackbody'
         else:
-            redback.utils.logger.info("No lambda_cut provided; no correction applied. Assuming a pure blackbody SED.")
-            lambda_cut = None
+            raise ValueError("Unknown bolometric luminosity method '{}'. Use 'blackbody' or 'cutoff_blackbody'.".format(method))
+
+        lambda_cut = None
+        if method == 'blackbody':
+            # Retrieve optional lambda_cut (in angstroms) for the boost correction.
+            lambda_cut_angstrom = kwargs.pop('lambda_cut', None)
+            if lambda_cut_angstrom is not None:
+                redback.utils.logger.info("Including effects of missing flux due to line blanketing.")
+                redback.utils.logger.info(
+                    "Using lambda_cut = {} Å for bolometric luminosity boost.".format(lambda_cut_angstrom))
+                # Convert lambda_cut from angstroms to centimeters (1 Å = 1e-8 cm)
+                lambda_cut = lambda_cut_angstrom * 1e-8
+            else:
+                redback.utils.logger.info(
+                    "No lambda_cut provided; no correction applied. Assuming a pure blackbody SED.")
+        else:
+            redback.utils.logger.info("Using direct cutoff blackbody SED integration.")
 
         # Retrieve optional extinction in magnitudes.
         A_ext = kwargs.pop('A_ext', 0.0)
@@ -1887,7 +2176,8 @@ class OpticalTransient(Transient):
         extinction_factor = 10 ** (0.4 * A_ext)
 
         # Retrieve blackbody parameters via your existing method.
-        df_bb = self.estimate_bb_params(distance=distance, bin_width=bin_width, min_filters=min_filters, **kwargs)
+        df_bb = self.estimate_bb_params(
+            distance=distance, bin_width=bin_width, min_filters=min_filters, method=method, **kwargs)
         if df_bb is None or len(df_bb) == 0:
             redback.utils.logger.warning("No valid blackbody fits were obtained; cannot estimate bolometric luminosity.")
             return None
@@ -1897,6 +2187,7 @@ class OpticalTransient(Transient):
         L_bol_err = []
         L_bol_bb = []
         L_bol_bb_err = []
+        cutoff_fractions = []
         for index, row in df_bb.iterrows():
             temp = row['temperature']
             radius = row['radius']
@@ -1909,6 +2200,13 @@ class OpticalTransient(Transient):
             else:
                 lum = 4 * np.pi * (radius ** 2) * redback.constants.sigma_sb * (temp ** 4)
                 lum_bb = lum
+            if method == 'cutoff_blackbody':
+                lum_bb = 4 * np.pi * (radius ** 2) * redback.constants.sigma_sb * (temp ** 4)
+                cutoff_fraction = self._cutoff_blackbody_luminosity_fraction(
+                    temperature=temp, cutoff_wavelength=row['cutoff_wavelength'],
+                    absorption_index=row['absorption_index'])
+                lum = lum_bb * cutoff_fraction
+                cutoff_fractions.append(cutoff_fraction)
 
             # Apply extinction correction to both luminosities.
             lum *= extinction_factor
@@ -1930,10 +2228,14 @@ class OpticalTransient(Transient):
         df_bol['lum_bol_err'] = np.array(L_bol_err) / 1e50
         df_bol['lum_bol_bb'] = np.array(L_bol_bb) / 1e50
         df_bol['lum_bol_bb_err'] = np.array(L_bol_bb_err) / 1e50
+        if method == 'cutoff_blackbody':
+            df_bol['cutoff_fraction'] = np.array(cutoff_fractions)
+            df_bol['cutoff_boost'] = 1.0 / df_bol['cutoff_fraction']
+        df_bol['method'] = method
         df_bol['time_rest_frame'] = df_bol['epoch_times'] / (1 + self.redshift)
 
         redback.utils.logger.info('Masking bolometric estimates with likely wrong extractions')
         df_bol = df_bol[df_bol['lum_bol_err'] / df_bol['lum_bol'] < 1]
         redback.utils.logger.info(
-            "Estimated bolometric luminosity using blackbody integration (with boost and extinction corrections if specified).")
+            "Estimated bolometric luminosity using {} integration.".format(method))
         return df_bol

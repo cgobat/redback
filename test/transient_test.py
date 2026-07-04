@@ -601,6 +601,59 @@ class TestOpticalTransient(unittest.TestCase):
         # Check that luminosity is positive.
         self.assertGreater(df_bol['lum_bol'].iloc[0], 0, "Corrected bolometric luminosity should be positive.")
 
+    def test_estimate_bb_params_invalid_method(self):
+        """Test that unsupported blackbody fit methods fail explicitly."""
+        transient_bb = redback.transient.OpticalTransient(
+            time=np.array([10, 10.1, 10.2]),
+            flux_density=np.array([1e4, 1.05e4, 1.1e4]),
+            redshift=0.1, data_mode="flux_density", name="TestBB",
+            frequency=np.array([5e14, 6e14, 7e14]), use_phase_model=False)
+        with self.assertRaises(ValueError):
+            transient_bb.estimate_bb_params(method="not_a_method")
+
+    def test_estimate_bolometric_luminosity_cutoff_blackbody_method(self):
+        """Test cutoff_blackbody fitting and direct cutoff SED integration."""
+        redshift = 0.1
+        distance = 1e27
+        temperature = 11000.0
+        radius = 8e14
+        cutoff_wavelength = 4500.0
+        absorption_index = 2.0
+        wavelengths = np.array([2500., 3300., 4200., 5200., 6500., 8000.])
+        observer_frequency = redback.utils.lambda_to_nu(wavelengths)
+        source_frequency, _ = redback.utils.calc_kcorrected_properties(
+            frequency=observer_frequency, redshift=redshift, time=0.)
+        flux_density = redback.transient.OpticalTransient._cutoff_blackbody_flux_density_mjy(
+            frequency=source_frequency, temperature=temperature, radius=radius, distance=distance,
+            redshift=redshift, cutoff_wavelength=cutoff_wavelength, absorption_index=absorption_index)
+        flux_density_err = 0.05 * flux_density
+        time = np.array([10.0, 10.05, 10.1, 10.15, 10.2, 10.25])
+
+        transient_bb = redback.transient.OpticalTransient(
+            time=time, flux_density=flux_density, flux_density_err=flux_density_err,
+            redshift=redshift, data_mode="flux_density", name="TestCutoffBB",
+            frequency=observer_frequency, use_phase_model=False)
+        transient_bb.get_filtered_data = lambda: (time, np.zeros(len(time)), flux_density, flux_density_err)
+
+        df_bb = transient_bb.estimate_bb_params(
+            method="cutoff_blackbody", distance=distance, bin_width=1.0, min_filters=3,
+            cutoff_wavelength=cutoff_wavelength, absorption_index=absorption_index)
+        self.assertIsNotNone(df_bb)
+        for col in ['cutoff_wavelength', 'absorption_index', 'method']:
+            self.assertIn(col, df_bb.columns)
+        self.assertEqual(df_bb['method'].iloc[0], 'cutoff_blackbody')
+
+        df_bol = transient_bb.estimate_bolometric_luminosity(
+            methods="cutoff_blackbody", distance=distance, bin_width=1.0, min_filters=3,
+            cutoff_wavelength=cutoff_wavelength, absorption_index=absorption_index)
+        self.assertIsNotNone(df_bol)
+        for col in ['lum_bol', 'lum_bol_bb', 'cutoff_fraction', 'cutoff_boost']:
+            self.assertIn(col, df_bol.columns)
+        self.assertGreater(df_bol['lum_bol'].iloc[0], 0)
+        self.assertGreater(df_bol['lum_bol_bb'].iloc[0], df_bol['lum_bol'].iloc[0])
+        self.assertGreater(df_bol['cutoff_fraction'].iloc[0], 0)
+        self.assertLessEqual(df_bol['cutoff_fraction'].iloc[0], 1)
+
 
 class TestAfterglow(unittest.TestCase):
 
