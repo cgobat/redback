@@ -4,6 +4,14 @@ from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 
+_SECONDS_PER_DAY = 86400.0
+
+
+def _s_to_d(seconds: float) -> float:
+    """Convert seconds to days for max_time_days registration."""
+    return seconds / _SECONDS_PER_DAY
+
+
 @dataclass(frozen=True)
 class ModelMetadata:
     """Structured metadata for a redback model function."""
@@ -20,6 +28,7 @@ class ModelMetadata:
     supports_extinction: bool = False
     supports_constraints: bool = False
     speed: str = "unknown"
+    max_time_days: float | None = None
 
 
 def _validate_string_tuple(field_name: str, values: tuple[str, ...]) -> None:
@@ -62,6 +71,9 @@ def validate_model_metadata(
         raise TypeError("supports_constraints must be a boolean.")
     if not isinstance(metadata.speed, str) or not metadata.speed:
         raise ValueError("speed must be a non-empty string.")
+    if metadata.max_time_days is not None:
+        if not isinstance(metadata.max_time_days, (int, float)) or metadata.max_time_days <= 0:
+            raise ValueError("max_time_days must be a positive number or None.")
     return metadata
 
 
@@ -100,7 +112,8 @@ def _metadata(
         default_output_format: str | None = None, required_kwargs: tuple[str, ...] = (),
         supports_extinction: bool = False, supports_constraints: bool = False,
         speed: str = "unknown", has_prior: bool = True,
-        optional_dependencies: tuple[str, ...] = ()) -> ModelMetadata:
+        optional_dependencies: tuple[str, ...] = (),
+        max_time_days: float | None = None) -> ModelMetadata:
     if default_output_format is None and len(output_formats) == 1:
         default_output_format = output_formats[0]
     return validate_model_metadata(ModelMetadata(
@@ -116,13 +129,15 @@ def _metadata(
         supports_extinction=supports_extinction,
         supports_constraints=supports_constraints,
         speed=speed,
+        max_time_days=max_time_days,
     ))
 
 
 def _optical_model(
         name: str, model_type: str, source_module: str, supports_constraints: bool = False,
         speed: str = "medium", output_formats: tuple[str, ...] = OPTICAL_OUTPUT_FORMATS,
-        has_prior: bool = True, optional_dependencies: tuple[str, ...] = ()) -> ModelMetadata:
+        has_prior: bool = True, optional_dependencies: tuple[str, ...] = (),
+        max_time_days: float | None = None) -> ModelMetadata:
     return _metadata(
         name=name,
         model_type=model_type,
@@ -135,13 +150,15 @@ def _optical_model(
         speed=speed,
         has_prior=has_prior,
         optional_dependencies=optional_dependencies,
+        max_time_days=max_time_days,
     )
 
 
 def _bolometric_model(
         name: str, model_type: str, source_module: str, supports_constraints: bool = False,
         speed: str = "fast", has_prior: bool = True,
-        optional_dependencies: tuple[str, ...] = ()) -> ModelMetadata:
+        optional_dependencies: tuple[str, ...] = (),
+        max_time_days: float | None = None) -> ModelMetadata:
     return _metadata(
         name=name,
         model_type=model_type,
@@ -151,6 +168,7 @@ def _bolometric_model(
         speed=speed,
         has_prior=has_prior,
         optional_dependencies=optional_dependencies,
+        max_time_days=max_time_days,
     )
 
 
@@ -173,83 +191,92 @@ BUILTIN_MODEL_METADATA = {
 
     "arnett": _optical_model(
         name="arnett", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "arnett_bolometric": _bolometric_model(
         name="arnett_bolometric", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True),
+        supports_constraints=True, max_time_days=3000.0),
     "arnett_with_features": _optical_model(
         name="arnett_with_features", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "csm_interaction": _optical_model(
         name="csm_interaction", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=500.0),
     "csm_nickel": _optical_model(
         name="csm_nickel", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "csm_nickel_bolometric": _bolometric_model(
         name="csm_nickel_bolometric", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True),
+        supports_constraints=True, max_time_days=3000.0),
     "csm_shock_and_arnett": _optical_model(
         name="csm_shock_and_arnett", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "csm_shock_and_arnett_bolometric": _bolometric_model(
         name="csm_shock_and_arnett_bolometric", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True),
+        supports_constraints=True, max_time_days=3000.0),
     "magnetar_nickel": _optical_model(
         name="magnetar_nickel", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "slsn": _optical_model(
         name="slsn", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "slsn_bolometric": _bolometric_model(
         name="slsn_bolometric", model_type="supernova", source_module="supernova_models",
-        supports_constraints=True),
+        supports_constraints=True, max_time_days=3000.0),
     "type_1a": _optical_model(
         name="type_1a", model_type="supernova", source_module="supernova_models",
-        speed="medium", optional_dependencies=("sncosmo",)),
+        speed="medium", optional_dependencies=("sncosmo",), max_time_days=3000.0),
     "type_1c": _optical_model(
         name="type_1c", model_type="supernova", source_module="supernova_models",
-        speed="medium", optional_dependencies=("sncosmo",)),
+        speed="medium", optional_dependencies=("sncosmo",), max_time_days=3000.0),
     "salt2": _optical_model(
         name="salt2", model_type="supernova", source_module="supernova_models",
-        speed="medium", optional_dependencies=("sncosmo",)),
+        speed="medium", optional_dependencies=("sncosmo",), max_time_days=3000.0),
 
     "one_component_kilonova_model": _optical_model(
         name="one_component_kilonova_model", model_type="kilonova",
-        source_module="kilonova_models", speed="fast"),
+        source_module="kilonova_models", speed="fast", max_time_days=_s_to_d(7e6)),
     "two_component_kilonova_model": _optical_model(
         name="two_component_kilonova_model", model_type="kilonova",
-        source_module="kilonova_models", speed="fast"),
+        source_module="kilonova_models", speed="fast", max_time_days=_s_to_d(86400 * 6)),
     "three_component_kilonova_model": _optical_model(
         name="three_component_kilonova_model", model_type="kilonova",
-        source_module="kilonova_models", speed="fast"),
+        source_module="kilonova_models", speed="fast", max_time_days=_s_to_d(7e6)),
     "one_component_ejecta_relation": _optical_model(
         name="one_component_ejecta_relation", model_type="kilonova",
-        source_module="kilonova_models", supports_constraints=True, speed="fast"),
+        source_module="kilonova_models", supports_constraints=True, speed="fast",
+        max_time_days=_s_to_d(7e6)),
     "two_component_bns_ejecta_relation": _optical_model(
         name="two_component_bns_ejecta_relation", model_type="kilonova",
-        source_module="kilonova_models", supports_constraints=True, speed="fast"),
+        source_module="kilonova_models", supports_constraints=True, speed="fast",
+        max_time_days=_s_to_d(7e6)),
     "two_component_nsbh_ejecta_relation": _optical_model(
         name="two_component_nsbh_ejecta_relation", model_type="kilonova",
-        source_module="kilonova_models", supports_constraints=True, speed="fast"),
+        source_module="kilonova_models", supports_constraints=True, speed="fast",
+        max_time_days=_s_to_d(7e6)),
 
     "gaussianrise_cooling_envelope": _optical_model(
         name="gaussianrise_cooling_envelope", model_type="tde", source_module="tde_models",
-        output_formats=SIMPLE_OPTICAL_OUTPUT_FORMATS, supports_constraints=True, speed="medium"),
+        output_formats=SIMPLE_OPTICAL_OUTPUT_FORMATS, supports_constraints=True, speed="medium",
+        max_time_days=3000.0),
     "bpl_cooling_envelope": _optical_model(
         name="bpl_cooling_envelope", model_type="tde", source_module="tde_models",
-        output_formats=SIMPLE_OPTICAL_OUTPUT_FORMATS, supports_constraints=True, speed="medium"),
+        output_formats=SIMPLE_OPTICAL_OUTPUT_FORMATS, supports_constraints=True, speed="medium",
+        max_time_days=3000.0),
     "cooling_envelope": _optical_model(
         name="cooling_envelope", model_type="tde", source_module="tde_models",
-        supports_constraints=True, speed="medium"),
+        supports_constraints=True, speed="medium", max_time_days=3000.0),
     "tde_analytical": _optical_model(
-        name="tde_analytical", model_type="tde", source_module="tde_models", speed="fast"),
+        name="tde_analytical", model_type="tde", source_module="tde_models", speed="fast",
+        max_time_days=1000.0),
     "tde_analytical_bolometric": _bolometric_model(
-        name="tde_analytical_bolometric", model_type="tde", source_module="tde_models"),
+        name="tde_analytical_bolometric", model_type="tde", source_module="tde_models",
+        max_time_days=1000.0),
     "tde_fallback": _optical_model(
-        name="tde_fallback", model_type="tde", source_module="tde_models", speed="medium"),
+        name="tde_fallback", model_type="tde", source_module="tde_models", speed="medium",
+        max_time_days=1000.0),
     "tde_fallback_bolometric": _bolometric_model(
-        name="tde_fallback_bolometric", model_type="tde", source_module="tde_models"),
+        name="tde_fallback_bolometric", model_type="tde", source_module="tde_models",
+        max_time_days=1000.0),
 
     "tophat": _metadata(
         name="tophat", model_type="afterglow", source_module="afterglow_models",
