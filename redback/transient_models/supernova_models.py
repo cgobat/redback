@@ -179,7 +179,7 @@ def sn1998bw_template(time, redshift, amplitude, **kwargs):
     model = sncosmo.Model(source='v19-1998bw')
     original_redshift = 0.0085
     cosmology = kwargs.get("cosmology", cosmo)
-    original_dl = (43*uu.Mpc).to(uu.cm).value
+    original_dl = cosmology.luminosity_distance(original_redshift).cgs.value
 
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
@@ -188,7 +188,8 @@ def sn1998bw_template(time, redshift, amplitude, **kwargs):
     tts = np.geomspace(0.01, 90, 200)
     lls = np.linspace(1620, 11000, 300)
     f_lambda = model.flux(tts, lls) #erg/s/cm^2/Angstrom.
-    l_lambda = f_lambda * 4 * np.pi * original_dl**2  # erg/s/Angstrom
+    # f_lambda is observer-frame flux: f = L / (4*pi*dl^2*(1+z)), so L = f*4*pi*dl^2*(1+z)
+    l_lambda = f_lambda * 4 * np.pi * original_dl**2 * (1 + original_redshift)  # erg/s/Angstrom
 
     # We consider this the rest frame spectrum of 1998bw. Now we can redshift it and scale it.
     time_obs = tts * (1 + redshift)
@@ -264,7 +265,7 @@ def sn1998bw_template_with_extrapolation(time, redshift, amplitude, **kwargs):
     model = sncosmo.Model(source='v19-1998bw')
     original_redshift = 0.0085
     cosmology = kwargs.get("cosmology", cosmo)
-    original_dl = (43*uu.Mpc).to(uu.cm).value
+    original_dl = cosmology.luminosity_distance(original_redshift).cgs.value
 
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
@@ -308,9 +309,10 @@ def sn1998bw_template_with_extrapolation(time, redshift, amplitude, **kwargs):
         f_row[lls_rest > red_lim] = bb_unit_lambda(lls_rest[lls_rest > red_lim]) * s_red
         # UV Extrapolation
         f_row[lls_rest < blue_lim] = bb_unit_lambda(lls_rest[lls_rest < blue_lim]) * s_blue
-        # Scale to luminosity then back to new observer distance
-        l_lambda = f_row * 4 * np.pi * original_dl**2
-        f_lambda_obs = amplitude * (l_lambda / (4 * np.pi * dl_new**2)) / (1 + redshift) # accounting for bandwidth stretching
+        # Scale to luminosity then back to new observer distance.
+        # f_lambda is observer-frame: f = L / (4*pi*dl^2*(1+z)), so L = f*4*pi*dl^2*(1+z)
+        l_lambda = f_row * 4 * np.pi * original_dl**2 * (1 + original_redshift)
+        f_lambda_obs = amplitude * (l_lambda / (4 * np.pi * dl_new**2)) / (1 + redshift)
         f_lambda_grid[i, :] = f_lambda_obs
 
     # Final conversion and interpolation
