@@ -72,6 +72,8 @@ def fit_model(
     if prior is None:
         from redback.priors import get_priors
         prior = get_priors(modelname)
+        if not prior:
+            raise ValueError(f"No prior found for model '{modelname}'. Pass a prior explicitly.")
         logger.warning(f"No prior given. Using default priors for {modelname}")
     else:
         prior = prior

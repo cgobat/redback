@@ -337,11 +337,11 @@ def _polytrope_two_component_bns_ejecta_quantities(mass_1, mass_2, log_p, gamma_
                 gamma_2=inputs[4][array_index],
                 gamma_3=inputs[5][array_index])
             mtov = eos_model.maximum_mass()
-            masses = np.array([inputs[0][array_index], inputs[1][array_index]])
-            tidal_deformability, _ = eos_model.lambda_of_mass(central_pressure=central_pressure, mass=masses)
+            lambda_1, _ = eos_model.lambda_of_mass(central_pressure=central_pressure, mass=float(inputs[0][array_index]))
+            lambda_2, _ = eos_model.lambda_of_mass(central_pressure=central_pressure, mass=float(inputs[1][array_index]))
             ejecta_relation = ejr.TwoComponentBNS(
                 mass_1=inputs[0][array_index], mass_2=inputs[1][array_index],
-                lambda_1=tidal_deformability[0], lambda_2=tidal_deformability[1],
+                lambda_1=lambda_1, lambda_2=lambda_2,
                 mtov=mtov, zeta=inputs[6][array_index])
             dynamical_mej[index] = ejecta_relation.dynamical_mej
             disk_wind_mej[index] = ejecta_relation.disk_wind_mej

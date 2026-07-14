@@ -88,7 +88,7 @@ def coerce_model_metadata(name: str, metadata: ModelMetadata | Mapping[str, Any]
         raise TypeError("Model metadata must be a ModelMetadata instance or mapping.")
 
     values = dict(metadata)
-    values.setdefault("name", name)
+    values["name"] = name
     for key in ("output_formats", "required_kwargs", "optional_dependencies"):
         if key in values:
             if values[key] is None:
