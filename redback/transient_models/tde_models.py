@@ -286,9 +286,12 @@ def cooling_envelope(time, redshift, mbh_6, stellar_mass, eta, alpha, beta, **kw
         time = time * cc.day_to_s
         frequency, time = calc_kcorrected_properties(frequency=frequency, redshift=redshift, time=time)
 
-        # interpolate properties onto observation times post tfb
-        temp_func = interp1d(output.time_since_fb, y=output.photosphere_temperature)
-        rad_func = interp1d(output.time_since_fb, y=output.photosphere_radius)
+        # interpolate properties onto observation times post tfb;
+        # times beyond model termination return zero flux naturally
+        temp_func = interp1d(output.time_since_fb, y=output.photosphere_temperature,
+                             bounds_error=False, fill_value=0.0)
+        rad_func = interp1d(output.time_since_fb, y=output.photosphere_radius,
+                            bounds_error=False, fill_value=0.0)
 
         temp = temp_func(time)
         photosphere = rad_func(time)

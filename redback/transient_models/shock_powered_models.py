@@ -576,7 +576,8 @@ def csm_shock_breakout(time, redshift, csm_mass, v_min, beta, kappa, shell_radiu
     dense_resolution = kwargs.get("dense_resolution", 300)
     # Convert user times to source frame for optimal grid
     time_source_frame = time / (1. + redshift)
-    time_temp = get_optimal_time_array(1e-2, 60, dense_resolution, user_times=time_source_frame, time_units="days") #days
+    t_max = max(60, time_source_frame.max())
+    time_temp = get_optimal_time_array(1e-2, t_max, dense_resolution, user_times=time_source_frame, time_units="days") #days
     time_obs = time
     outputs = _csm_shock_breakout(time_temp, v_min=v_min, beta=beta,
                                   kappa=kappa, csm_mass=csm_mass, shell_radius=shell_radius,
