@@ -8,11 +8,6 @@ import redback.model_library
 import redback.constraints
 from redback.utils import logger
 
-_constraint_map = {
-    'slsn': redback.constraints.slsn_constraint,
-    'slsn_bolometric': redback.constraints.slsn_constraint,
-}
-
 _constraint_settings = {
     'slsn': (
         redback.constraints.slsn_constraint,
@@ -166,8 +161,6 @@ def get_priors(model, times=None, y=None, yerr=None, dt=None, constraint=False, 
     try:
         filename = os.path.join(os.path.dirname(__file__), 'priors', f'{model}.prior')
         priors.from_file(filename)
-        if model in _constraint_map:
-            priors.conversion_function = _constraint_map[model]
         if constraint:
             _apply_constraints(priors, model)
         return priors
