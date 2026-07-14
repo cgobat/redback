@@ -21,7 +21,8 @@ class FXT(CountsSpectrumTransient):
 
     def __post_init__(self):
         self._validate_dataset(self.dataset)
-        super().__post_init__()
+        self.dataset.name = self.name
+        self.data_mode = "spectrum_counts"
         self.directory_structure = redback.get_data.directory.open_access_directory_structure(
             transient=self.name, transient_type="fxt")
         if self.energy_range is not None:

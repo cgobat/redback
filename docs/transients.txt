@@ -332,4 +332,4 @@ Spectrum object
 :code:`redback` also provides a :code:`spectrum` object which can be used to load, plot, and fit spectral energy distributions.
 These are treated the same for all transients and are generic enough to describe any wavelength spectrum.
 The spectrums can be fit with any :code:`redback` model or any user defined model. And some examples are provided in the
-`examples <https://github.com/nikhil-sarin/redback/blob/examples/>`_ folder on the github repository.
+`examples <https://github.com/nikhil-sarin/redback/blob/master/examples/>`_ folder on the GitHub repository.
