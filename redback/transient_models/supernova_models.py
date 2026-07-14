@@ -179,7 +179,7 @@ def sn1998bw_template(time, redshift, amplitude, **kwargs):
     model = sncosmo.Model(source='v19-1998bw')
     original_redshift = 0.0085
     cosmology = kwargs.get("cosmology", cosmo)
-    original_dl = cosmology.luminosity_distance(original_redshift).cgs.value
+    original_dl =  (43*uu.Mpc).to(uu.cm).value
 
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
@@ -265,7 +265,7 @@ def sn1998bw_template_with_extrapolation(time, redshift, amplitude, **kwargs):
     model = sncosmo.Model(source='v19-1998bw')
     original_redshift = 0.0085
     cosmology = kwargs.get("cosmology", cosmo)
-    original_dl = cosmology.luminosity_distance(original_redshift).cgs.value
+    original_dl = (43.*uu.Mpc).to(uu.cm).value
 
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
