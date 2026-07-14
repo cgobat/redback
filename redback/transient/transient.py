@@ -1851,6 +1851,9 @@ class OpticalTransient(Transient):
     def _cutoff_blackbody_luminosity_fraction(temperature, cutoff_wavelength, absorption_index):
         from scipy.integrate import quad
 
+        if not np.isfinite(temperature) or temperature <= 0:
+            return np.nan
+
         cutoff_cm = cutoff_wavelength * redback.constants.angstrom_cgs
         x_cut = redback.constants.planck * redback.constants.speed_of_light / (
             cutoff_cm * redback.constants.boltzmann_constant * temperature)
@@ -1921,6 +1924,8 @@ class OpticalTransient(Transient):
         cutoff_wavelength_bounds = kwargs.get('cutoff_wavelength_bounds', (1000.0, 10000.0))
         absorption_index_bounds = kwargs.get('absorption_index_bounds', (0.0, 3.99))
 
+        if cutoff_wavelength <= 0:
+            raise ValueError("cutoff_wavelength must be strictly positive.")
         if absorption_index < 0:
             raise ValueError("absorption_index must be non-negative for cutoff_blackbody fits.")
         if fit_absorption_index and absorption_index_bounds[0] < 0:

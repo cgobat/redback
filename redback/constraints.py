@@ -225,7 +225,8 @@ def csm_constraints(parameters):
     kappa = parameters['kappa']
     r0 = parameters['r0']
     if 'vej' not in parameters:
-        vej = np.sqrt(2.0 * parameters['ek'] / (mej * solar_mass)) / km_cgs
+        with np.errstate(divide='ignore', invalid='ignore'):
+            vej = np.sqrt(2.0 * parameters['ek'] / (np.asarray(mej, dtype=float) * solar_mass)) / km_cgs
     else:
         vej = parameters['vej']
     nn = parameters.get('nn', np.ones_like(np.asarray(mej, dtype=float)) * 12.)

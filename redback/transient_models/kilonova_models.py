@@ -1862,9 +1862,9 @@ def _one_component_kilonova_model(time, mej, vej, kappa, **kwargs):
     """
     temperature_floor = kwargs.get('temperature_floor', 4000) #kelvin
     if mej <= 0:
-        bolometric_luminosity = np.zeros(len(time))
-        temperature = np.ones(len(time)) * temperature_floor
-        r_photosphere = np.zeros(len(time))
+        bolometric_luminosity = np.zeros_like(time)
+        temperature = np.ones_like(time) * temperature_floor
+        r_photosphere = np.zeros_like(time)
         return bolometric_luminosity, temperature, r_photosphere
 
     tdays = time/day_to_s

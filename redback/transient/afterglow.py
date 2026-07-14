@@ -147,7 +147,7 @@ class Afterglow(Transient):
 
     @staticmethod
     def _normalise_grb_name(name: str) -> str:
-        name = name.replace(" ", "")
+        name = str(name).replace(" ", "")
         return name if name.startswith("GRB") else f"GRB{name}"
 
     def _set_directory_structure(self) -> None:

@@ -8,13 +8,14 @@ from redback.utils import nu_to_lambda, bandpass_magnitude_to_flux, logger
 
 
 def _inverse_expm1(argument):
-    argument = np.asarray(argument, dtype=float)
-    inverse = np.empty_like(argument)
-    large_argument = argument > 50.0
-    exp_negative_argument = np.exp(-argument[large_argument])
-    inverse[large_argument] = exp_negative_argument / (1. - exp_negative_argument)
-    inverse[~large_argument] = 1. / np.expm1(argument[~large_argument])
-    return inverse
+    arg = np.asarray(argument, dtype=float)
+    with np.errstate(divide='ignore', over='ignore', under='ignore', invalid='ignore'):
+        safe_arg = np.minimum(arg, 50.0)
+        val_small = 1.0 / np.expm1(safe_arg)
+        exp_neg = np.exp(-np.maximum(arg, 0.0))
+        val_large = exp_neg / (1.0 - exp_neg)
+        res = np.where(arg > 50.0, val_large, val_small)
+    return res.item() if res.ndim == 0 else res
 
 
 def _bandflux_single_redback(model, band, time_or_phase):

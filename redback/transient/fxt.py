@@ -40,7 +40,7 @@ class FXT(CountsSpectrumTransient):
             raise ValueError("FXT dataset energy_edges_keV must be a one-dimensional array with at least two edges")
         if not np.all(np.isfinite(energy_edges_keV)) or np.any(np.diff(energy_edges_keV) <= 0):
             raise ValueError("FXT dataset energy_edges_keV must be finite and strictly increasing")
-        if not np.isfinite(float(dataset.exposure)) or float(dataset.exposure) <= 0:
+        if dataset.exposure is None or not np.isfinite(float(dataset.exposure)) or float(dataset.exposure) <= 0:
             raise ValueError("FXT dataset exposure must be finite and positive")
 
         has_energy_bin_axis = len(counts) == len(energy_edges_keV) - 1
