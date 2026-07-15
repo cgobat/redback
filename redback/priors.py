@@ -29,6 +29,7 @@ _constraint_settings = {
         redback.constraints.gaussianrise_tde_constraints,
         {'beta_high': (0, 1), 'tfb_max': (0, 1)}
     ),
+    # eta and beta validity depends on mbh_6 and stellar_mass; pass constraint=True to enforce this.
     'cooling_envelope': (
         redback.constraints.cooling_envelope_constraints,
         {'eta_min_ratio': (0, 1), 'beta_max_ratio': (0, 1)}

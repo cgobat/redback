@@ -1,3 +1,6 @@
+# eta > eta_min(mbh_6, stellar_mass) and beta < beta_max(mbh_6, stellar_mass) must hold for physical solutions.
+# These bounds depend on sampled parameter combinations, so pass constraint=True to get_priors() or
+# fit_model() to have bilby reject invalid samples automatically.
 redshift = Uniform(1e-6, 3, 'redshift', latex_label = r'$z$')
 mbh_6 = LogUniform(0.1, 10, name='mbh_6', latex_label = r'$M_{\mathrm{BH}}~[10^{6}~M_{\odot}]$')
 stellar_mass = LogUniform(0.5, 10, name='stellar_mass', latex_label = r'$M_{\mathrm{star}} [M_{\odot}]$')
