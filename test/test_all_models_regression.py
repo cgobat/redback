@@ -68,7 +68,11 @@ class TestAllModelsRegression(unittest.TestCase):
             
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result = model_func(**current_kwargs)
+                try:
+                    result = model_func(**current_kwargs)
+                except (ImportError, ModuleNotFoundError) as e:
+                    self.skipTest(f"Optional dependency not installed: {e}")
+                    return
             
             # Compare results
             try:
