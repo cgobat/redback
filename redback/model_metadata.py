@@ -277,6 +277,9 @@ BUILTIN_MODEL_METADATA = {
     "tde_fallback_bolometric": _bolometric_model(
         name="tde_fallback_bolometric", model_type="tde", source_module="tde_models",
         max_time_days=1000.0),
+    "fitted": _optical_model(
+        name="fitted", model_type="tde", source_module="tde_models", speed="medium",
+        optional_dependencies=("fitted",), max_time_days=1000.0),
 
     "tophat": _metadata(
         name="tophat", model_type="afterglow", source_module="afterglow_models",

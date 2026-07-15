@@ -128,12 +128,17 @@ def generate_ref_data_for_model(category, model_name, model_func, time_array):
                 params_list.append(params)
                 results_list.append(result)
         
+        from redback.model_metadata import BUILTIN_MODEL_METADATA
+        meta = BUILTIN_MODEL_METADATA.get(model_name)
+        optional_deps = list(meta.optional_dependencies) if meta else []
+
         ref_data = {
             'params': params_list,
             'results': results_list,
             'metadata': {
                 'time_array': time_array,
-                'eval_kwargs': {k: v for k, v in eval_kwargs.items() if k != 'time'}
+                'eval_kwargs': {k: v for k, v in eval_kwargs.items() if k != 'time'},
+                'optional_dependencies': optional_deps,
             }
         }
         
