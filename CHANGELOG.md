@@ -6,8 +6,9 @@ Version 1.18.0 release of redback
 ### New features
 - Add model metadata registry (`BUILTIN_MODEL_METADATA`) with `output_formats`, `supports_constraints`, `speed`, `max_time_days`, and other fields for 43 core models
 - Add `cutoff_blackbody` method to `estimate_bb_params` and `estimate_bolometric_luminosity`
-- Add FXT (Fast X-ray Transient) count-spectrum transient class
+- Add FXT (Fast X-ray Transient) count-spectrum transient class supporting OGIP files, rate-density inputs, and simulator data
 - Add constrained prior loading via `get_priors(model, constraint=True)` for all models with built-in constraints
+- Add `cooling_envelope_constraints` for TDE cooling-envelope physical bounds on `eta` and `beta`
 - Add `max_time_days` field to `ModelMetadata`
 
 ### Bug fixes
@@ -15,19 +16,21 @@ Version 1.18.0 release of redback
 - Fix `list_of_band_indices` crashing when `bands is None`
 - Fix duplicate redback log lines caused by `logger.propagate=True` with a root handler present
 - Fix `magnetar_nickel` dense time grid and missing diffusion in spectra path
-- Fix `fit_model` to use `get_priors()` instead of hardcoded `priors/` path
+- Fix `fit_model` to use `get_priors()` instead of hardcoded `priors/` path; raise a clear error when no prior is found
 - Fix prompt prior builders
 - Fix prior bounds and model robustness for 6 previously failing models
-- Fix `sn1998bw_template` bandwidth stretching factor and reference distance
+- Fix `sn1998bw_template` bandwidth stretching factor and reference distance (43 Mpc reference distance)
 - Fix FXT unused directory creation
+- Fix blackbody numerical stability at high frequencies via `_inverse_expm1` helper
 - Suppress spurious `lalsimulation` import warning
 
 ### Improvements
 - Remove `_constraint_map`; constraints now always applied via `_apply_constraints`
 - Stabilize transient model prior draws
 - Rename vegas prior files to match model function names
-- Add model prior health CI coverage
+- Add model prior health CI coverage and zero-mass kilonova regression tests
 - Add comprehensive `RedbackTutorial.ipynb` demo notebook
+- Expand docs for model metadata, constrained priors, FXT transient, and X-ray spectral fitting
 
 ## [1.17.0] 2026-06-19
 Version 1.17.0 release of redback
