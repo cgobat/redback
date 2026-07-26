@@ -7,7 +7,7 @@ Version 1.18.0 release of redback
 - Add model metadata registry (`BUILTIN_MODEL_METADATA`) with `output_formats`, `supports_constraints`, `speed`, `max_time_days`, and other fields for 43 core models
 - Add `cutoff_blackbody` method to `estimate_bb_params` and `estimate_bolometric_luminosity`
 - Add FXT (Fast X-ray Transient) count-spectrum transient class supporting OGIP files, rate-density inputs, and simulator data
-- Add constrained prior loading via `get_priors(model, constraint=True)` for all models with built-in constraints
+- Add constrained prior loading via `get_priors(model, constraint=True)` — automatically attaches bilby `Constraint` priors for models with built-in physical constraints (`csm_interaction`, `slsn`, `basic_magnetar_powered`, `general_magnetar_slsn`, `gaussianrise_tde`, `cooling_envelope`, `gaussianrise_cooling_envelope`, and more)
 - Add `cooling_envelope_constraints` for TDE cooling-envelope physical bounds on `eta` and `beta`
 - Add `max_time_days` field to `ModelMetadata`
 
@@ -29,7 +29,7 @@ Version 1.18.0 release of redback
 - Stabilize transient model prior draws
 - Rename vegas prior files to match model function names
 - Add model prior health CI coverage and zero-mass kilonova regression tests
-- Add comprehensive `RedbackTutorial.ipynb` demo notebook
+- Add `ExtraTutorial.ipynb` demo notebook. 
 - Expand docs for model metadata, constrained priors, FXT transient, and X-ray spectral fitting
 
 ## [1.17.0] 2026-06-19
