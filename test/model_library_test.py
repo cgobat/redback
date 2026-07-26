@@ -7,6 +7,8 @@ import unittest
 from unittest.mock import patch, Mock
 
 import redback.model_library as ml
+from redback.model_metadata import ModelMetadata
+from redback.model_metadata import coerce_model_metadata
 from redback.utils import get_functions_dict
 
 
@@ -34,6 +36,62 @@ class TestBuiltinModelsLoaded(unittest.TestCase):
     def test_base_models_subset_of_all_models(self):
         for name in ml.base_models_dict:
             self.assertIn(name, ml.all_models_dict)
+
+    def test_builtin_model_metadata_loaded(self):
+        self.assertIn('arnett', ml.model_metadata_dict)
+        metadata = ml.model_metadata_dict['arnett']
+        self.assertEqual(metadata.model_type, 'supernova')
+        self.assertIn('flux_density', metadata.output_formats)
+        self.assertEqual('supernova_models', metadata.source_module)
+        self.assertTrue(metadata.has_prior)
+
+    def test_builtin_model_metadata_is_curated_for_registered_models(self):
+        self.assertGreaterEqual(len(ml.model_metadata_dict), 40)
+        for model_name in ml.model_metadata_dict:
+            self.assertIn(model_name, ml.all_models_dict)
+
+    def test_prompt_and_spectral_metadata_loaded(self):
+        prompt_metadata = ml.model_metadata_dict['fred_extended']
+        self.assertEqual(prompt_metadata.model_type, 'prompt')
+        self.assertEqual(('counts',), prompt_metadata.output_formats)
+        self.assertEqual('counts', prompt_metadata.default_output_format)
+
+        spectral_metadata = ml.model_metadata_dict['band_function_high_energy']
+        self.assertEqual(spectral_metadata.model_type, 'spectral')
+        self.assertEqual(('spectrum',), spectral_metadata.output_formats)
+
+    def test_important_health_check_models_have_metadata(self):
+        for model_name in ('arnett', 'csm_nickel', 'one_component_kilonova_model'):
+            metadata = ml.get_model_metadata(model_name)
+            self.assertEqual('flux_density', metadata.default_output_format)
+            self.assertIn('output_format', metadata.required_kwargs)
+
+    def test_get_model_metadata(self):
+        metadata = ml.get_model_metadata('arnett')
+        self.assertIs(metadata, ml.model_metadata_dict['arnett'])
+
+    def test_get_model_metadata_default(self):
+        default = object()
+        self.assertIs(default, ml.get_model_metadata('missing_model_xyz', default=default))
+
+    def test_get_model_metadata_none_default(self):
+        self.assertIsNone(ml.get_model_metadata('missing_model_xyz', default=None))
+
+    def test_invalid_default_output_format_rejected(self):
+        with self.assertRaises(ValueError):
+            coerce_model_metadata('bad_metadata_model', {
+                'model_type': 'supernova',
+                'output_formats': ('flux_density',),
+                'default_output_format': 'magnitude',
+            })
+
+    def test_single_string_output_format_is_coerced(self):
+        metadata = coerce_model_metadata('string_metadata_model', {
+            'model_type': 'supernova',
+            'output_formats': 'flux_density',
+            'default_output_format': 'flux_density',
+        })
+        self.assertEqual(('flux_density',), metadata.output_formats)
 
 
 class TestPluginModelCollisionWarning(unittest.TestCase):
@@ -118,6 +176,110 @@ class TestPluginModelLoads(unittest.TestCase):
             _ml.all_models_dict.update(saved)
             _ml.modules_dict.clear()
             _ml.modules_dict.update(saved_mdict)
+
+    def test_new_plugin_model_metadata_added(self):
+        new_func = lambda time, **kw: None
+        new_func.__name__ = 'plugin_metadata_model_xyz'
+
+        fake_module = types.ModuleType('myplugin_metadata_models')
+        fake_module.__name__ = 'myplugin_metadata_models'
+        fake_module.redback_model_metadata = {
+            'plugin_metadata_model_xyz': {
+                'model_type': 'supernova',
+                'output_formats': ('flux_density',),
+                'default_output_format': 'flux_density',
+                'speed': 'fast',
+            }
+        }
+
+        fake_ep = Mock()
+        fake_ep.name = 'myplugin_metadata_models'
+        fake_ep.load.return_value = fake_module
+
+        import redback.model_library as _ml
+        saved = dict(_ml.all_models_dict)
+        saved_mdict = dict(_ml.modules_dict)
+        saved_metadata = dict(_ml.model_metadata_dict)
+        try:
+            with patch('redback.model_library.entry_points', return_value=[fake_ep]), \
+                 patch('redback.model_library.get_functions_dict',
+                       return_value={'myplugin_metadata_models': {'plugin_metadata_model_xyz': new_func}}):
+                _ml._load_plugin_modules()
+
+            self.assertIn('plugin_metadata_model_xyz', _ml.model_metadata_dict)
+            metadata = _ml.model_metadata_dict['plugin_metadata_model_xyz']
+            self.assertIsInstance(metadata, ModelMetadata)
+            self.assertEqual(metadata.model_type, 'supernova')
+            self.assertEqual('myplugin_metadata_models', metadata.source_module)
+            self.assertEqual(metadata.speed, 'fast')
+        finally:
+            _ml.all_models_dict.clear()
+            _ml.all_models_dict.update(saved)
+            _ml.modules_dict.clear()
+            _ml.modules_dict.update(saved_mdict)
+            _ml.model_metadata_dict.clear()
+            _ml.model_metadata_dict.update(saved_metadata)
+
+    def test_plugin_metadata_without_matching_model_warns(self):
+        fake_module = types.ModuleType('myplugin_bad_metadata_models')
+        fake_module.__name__ = 'myplugin_bad_metadata_models'
+        fake_module.redback_model_metadata = {
+            'missing_model': {'model_type': 'supernova'}
+        }
+
+        fake_ep = Mock()
+        fake_ep.name = 'myplugin_bad_metadata_models'
+        fake_ep.load.return_value = fake_module
+
+        import redback.model_library as _ml
+        with patch('redback.model_library.entry_points', return_value=[fake_ep]), \
+             patch('redback.model_library.get_functions_dict',
+                   return_value={'myplugin_bad_metadata_models': {}}), \
+             patch('redback.model_library.logger') as mock_logger:
+            _ml._load_plugin_modules()
+
+        mock_logger.warning.assert_called()
+
+    def test_invalid_plugin_metadata_warns_but_model_loads(self):
+        new_func = lambda time, **kw: None
+        new_func.__name__ = 'plugin_invalid_metadata_model_xyz'
+
+        fake_module = types.ModuleType('myplugin_invalid_metadata_models')
+        fake_module.__name__ = 'myplugin_invalid_metadata_models'
+        fake_module.redback_model_metadata = {
+            'plugin_invalid_metadata_model_xyz': {
+                'model_type': 'supernova',
+                'output_formats': ('flux_density',),
+                'default_output_format': 'magnitude',
+            }
+        }
+
+        fake_ep = Mock()
+        fake_ep.name = 'myplugin_invalid_metadata_models'
+        fake_ep.load.return_value = fake_module
+
+        import redback.model_library as _ml
+        saved = dict(_ml.all_models_dict)
+        saved_mdict = dict(_ml.modules_dict)
+        saved_metadata = dict(_ml.model_metadata_dict)
+        try:
+            with patch('redback.model_library.entry_points', return_value=[fake_ep]), \
+                 patch('redback.model_library.get_functions_dict',
+                       return_value={'myplugin_invalid_metadata_models': {
+                           'plugin_invalid_metadata_model_xyz': new_func}}), \
+                 patch('redback.model_library.logger') as mock_logger:
+                _ml._load_plugin_modules()
+
+            self.assertIn('plugin_invalid_metadata_model_xyz', _ml.all_models_dict)
+            self.assertNotIn('plugin_invalid_metadata_model_xyz', _ml.model_metadata_dict)
+            mock_logger.warning.assert_called()
+        finally:
+            _ml.all_models_dict.clear()
+            _ml.all_models_dict.update(saved)
+            _ml.modules_dict.clear()
+            _ml.modules_dict.update(saved_mdict)
+            _ml.model_metadata_dict.clear()
+            _ml.model_metadata_dict.update(saved_metadata)
 
 
 class TestModulesDictKeyUniqueness(unittest.TestCase):

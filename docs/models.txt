@@ -421,6 +421,30 @@ Generic lookup, for example :code:`extinction_with_function(base_model="my_custo
 Typed wrappers are stricter: :code:`extinction_with_supernova_base_model` only searches built-in supernova models and plugins that declare compatibility with :code:`"supernova"`.
 This avoids accidentally treating a kilonova, afterglow, or other plugin model as a supernova model.
 
+Plugins may also provide structured model metadata with :code:`redback_model_metadata`.
+This is optional, but lets redback and its tests know which output formats, model type, constraints, dependencies, and approximate speed tier a plugin model supports.
+Metadata is validated when the plugin is loaded. Invalid plugin metadata is skipped with a warning, but the plugin model itself can still load.
+For built-in redback models, metadata is a curated static registry for commonly used model families rather than a source-code inference pass.
+
+.. code:: python
+
+    redback_model_metadata = {
+        "my_custom_model": {
+            "model_type": "supernova",
+            "output_formats": ("flux_density", "magnitude", "flux"),
+            "default_output_format": "flux_density",
+            "required_kwargs": ("output_format", "redshift"),
+            "optional_dependencies": (),
+            "supports_extinction": True,
+            "supports_constraints": False,
+            "has_prior": True,
+            "speed": "fast",
+        }
+    }
+
+Metadata can be queried with :code:`redback.model_library.get_model_metadata("my_custom_model")`.
+The curated built-in and plugin metadata registry is available from :code:`redback.model_library.model_metadata_dict`.
+
 **Writing a plugin prior loader**
 
 The prior loader is a callable that takes a model name string and returns a :code:`bilby.core.prior.PriorDict` if it knows that model, or :code:`None` otherwise.

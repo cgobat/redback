@@ -7,6 +7,17 @@ from redback.constants import *
 from redback.utils import nu_to_lambda, bandpass_magnitude_to_flux, logger
 
 
+def _inverse_expm1(argument):
+    arg = np.asarray(argument, dtype=float)
+    with np.errstate(divide='ignore', over='ignore', under='ignore', invalid='ignore'):
+        safe_arg = np.minimum(arg, 50.0)
+        val_small = 1.0 / np.expm1(safe_arg)
+        exp_neg = np.exp(-np.maximum(arg, 0.0))
+        val_large = exp_neg / (1.0 - exp_neg)
+        res = np.where(arg > 50.0, val_large, val_small)
+    return res.item() if res.ndim == 0 else res
+
+
 def _bandflux_single_redback(model, band, time_or_phase):
     """
 
@@ -217,7 +228,8 @@ def blackbody_to_flux_density(temperature, r_photosphere, dl, frequency):
     boltzmann_constant = cc.k_B.cgs
     num = 2 * np.pi * planck * frequency ** 3 * radius ** 2
     denom = dl ** 2 * speed_of_light ** 2
-    frac = 1. / (np.expm1((planck * frequency) / (boltzmann_constant * temperature)))
+    argument = ((planck * frequency) / (boltzmann_constant * temperature)).decompose().value
+    frac = _inverse_expm1(argument)
     flux_density = num / denom * frac
     return flux_density
 
@@ -368,20 +380,20 @@ class CutoffBlackbody(_SED):
                 self.FLUX_CONST * (r_photosphere[self.mask]**2 *
                                 (self.wavelength[self.mask] / self.cutoff_wavelength)**alpha /
                                 self.wavelength[self.mask] ** 5) \
-                / np.expm1(self.X_CONST / self.wavelength[self.mask] / temperature[self.mask])
+                * _inverse_expm1(self.X_CONST / self.wavelength[self.mask] / temperature[self.mask])
             self.sed[~self.mask] = \
                 self.FLUX_CONST * (r_photosphere[~self.mask]**2 / self.wavelength[~self.mask]**5) \
-                / np.expm1(self.X_CONST / self.wavelength[~self.mask] / temperature[~self.mask])
+                * _inverse_expm1(self.X_CONST / self.wavelength[~self.mask] / temperature[~self.mask])
             self.sed *= self.norms[np.searchsorted(self.unique_times, self.time)]
         else:
             self.sed[self.mask] = \
                 self.FLUX_CONST * (self.r_photosphere[self.mask]**2 *
                             (self.wavelength[self.mask] / self.cutoff_wavelength)**alpha /
                             self.wavelength[self.mask] ** 5) \
-                / np.expm1(self.X_CONST / self.wavelength[self.mask] / self.temperature[self.mask])
+                * _inverse_expm1(self.X_CONST / self.wavelength[self.mask] / self.temperature[self.mask])
             self.sed[~self.mask] = \
                 self.FLUX_CONST * (self.r_photosphere[~self.mask]**2 / self.wavelength[~self.mask]**5) \
-                / np.expm1(self.X_CONST / self.wavelength[~self.mask] / self.temperature[~self.mask])
+                * _inverse_expm1(self.X_CONST / self.wavelength[~self.mask] / self.temperature[~self.mask])
             # Apply renormalisation
             self.sed *= self.norms[np.searchsorted(self.unique_times, self.time)]
 

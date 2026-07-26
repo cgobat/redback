@@ -16,16 +16,17 @@ def smooth_exponential_powerlaw(time, a_1, tpeak, alpha_1, alpha_2, smoothing_fa
     :param kwargs: Additional parameters
     :return: In whatever units set by a_1
     """
-    t_norm = time / tpeak
+    t_norm = np.asarray(time, dtype=float) / tpeak
+    positive_t_norm = np.where(t_norm > 0, t_norm, np.finfo(float).tiny)
 
     # Smooth transition function using tanh or similar
-    transition = 0.5 * (1 + np.tanh(smoothing_factor * np.log(t_norm)))
+    transition = 0.5 * (1 + np.tanh(smoothing_factor * np.log(positive_t_norm)))
 
     # Pre-peak behavior
-    pre_peak = a_1 * (t_norm ** alpha_1)
+    pre_peak = a_1 * (positive_t_norm ** alpha_1)
 
     # Post-peak behavior
-    post_peak = a_1 * (t_norm ** alpha_2)
+    post_peak = a_1 * (positive_t_norm ** alpha_2)
 
     # Smooth combination
     return pre_peak * (1 - transition) + post_peak * transition

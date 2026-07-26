@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from astropy.cosmology import Planck18 as cosmo  # noqa
 
+import redback.get_data.directory
 from redback.get_data.directory import afterglow_directory_structure
 from redback.transient.transient import Transient
 from redback.utils import logger
@@ -18,6 +19,7 @@ dirname = os.path.dirname(__file__)
 
 class Afterglow(Transient):
     DATA_MODES = ['luminosity', 'flux', 'flux_density', 'magnitude']
+    _uses_grb_directory = False
 
     def __init__(
             self, name: str, data_mode: str = 'flux', time: np.ndarray = None, time_err: np.ndarray = None,
@@ -93,8 +95,6 @@ class Afterglow(Transient):
         :type kwargs: None, optional
         """
 
-        name = f"GRB{name.lstrip('GRB')}"
-
         self.FluxToLuminosityConverter = kwargs.get('FluxToLuminosityConverter', FluxToLuminosityConverter)
         self.Truncator = kwargs.get('Truncator', Truncator)
 
@@ -109,7 +109,7 @@ class Afterglow(Transient):
         self._set_photon_index()
         self._set_t90()
         self._get_redshift()
-        self.directory_structure = afterglow_directory_structure(grb=self.name, data_mode=self.data_mode, instrument="")
+        self._set_directory_structure()
 
     @classmethod
     def from_swift_grb(
@@ -134,7 +134,7 @@ class Afterglow(Transient):
         :rtype: Afterglow
 
         """
-        afterglow = cls(name=name, data_mode=data_mode)
+        afterglow = cls(name=cls._normalise_grb_name(name), data_mode=data_mode, **kwargs)
         afterglow.snr = snr
 
         afterglow._set_data()
@@ -145,9 +145,24 @@ class Afterglow(Transient):
         afterglow.load_and_truncate_data(truncate=truncate, truncate_method=truncate_method, data_mode=data_mode)
         return afterglow
 
+    @staticmethod
+    def _normalise_grb_name(name: str) -> str:
+        name = str(name).replace(" ", "")
+        return name if name.startswith("GRB") else f"GRB{name}"
+
+    def _set_directory_structure(self) -> None:
+        if self._uses_grb_directory:
+            self.directory_structure = afterglow_directory_structure(
+                grb=self.name, data_mode=self.data_mode, instrument="")
+        else:
+            self.directory_structure = redback.get_data.directory.open_access_directory_structure(
+                transient=self.name, transient_type="afterglow")
+
     @property
     def _stripped_name(self) -> str:
-        return self.name.lstrip('GRB')
+        if self.name.startswith("GRB"):
+            return self.name[3:]
+        return self.name
 
     @property
     def data_mode(self) -> str:
@@ -166,8 +181,7 @@ class Afterglow(Transient):
         if data_mode in self.DATA_MODES or data_mode is None:
             self._data_mode = data_mode
             try:
-                self.directory_structure = afterglow_directory_structure(
-                    grb=self.name, data_mode=self.data_mode, instrument="")
+                self._set_directory_structure()
             except AttributeError:
                 pass
         else:
@@ -233,7 +247,7 @@ class Afterglow(Transient):
         
         # If no SNR specified, try to find any existing processed file
         if snr is None:
-            grb = f"GRB{name.lstrip('GRB')}"
+            grb = Afterglow._normalise_grb_name(name)
             directory_path = f'GRBData/afterglow/{data_mode}/'
             
             # Look for any processed file matching the pattern
@@ -251,7 +265,8 @@ class Afterglow(Transient):
                 directory_structure = afterglow_directory_structure(grb=grb, data_mode=data_mode, snr=None)
                 processed_file_path = directory_structure.processed_file_path
         else:
-            directory_structure = afterglow_directory_structure(grb=f"GRB{name.lstrip('GRB')}", data_mode=data_mode, snr=snr)
+            directory_structure = afterglow_directory_structure(
+                grb=Afterglow._normalise_grb_name(name), data_mode=data_mode, snr=snr)
             processed_file_path = directory_structure.processed_file_path
 
         data = np.genfromtxt(processed_file_path, delimiter=",")[1:]
@@ -443,12 +458,18 @@ class Afterglow(Transient):
 
 class SGRB(Afterglow):
     """ """
-    pass
+    _uses_grb_directory = True
+
+    def __init__(self, name: str, *args, **kwargs):
+        super().__init__(self._normalise_grb_name(name), *args, **kwargs)
 
 
 class LGRB(Afterglow):
     """ """
-    pass
+    _uses_grb_directory = True
+
+    def __init__(self, name: str, *args, **kwargs):
+        super().__init__(self._normalise_grb_name(name), *args, **kwargs)
 
 
 class Truncator(object):

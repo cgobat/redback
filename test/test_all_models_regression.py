@@ -6,6 +6,7 @@ If tests fail, regenerate reference data with:
     python test/reference_results/generate_all_model_ref_data.py
 """
 
+import importlib
 import os
 import unittest
 import numpy as np
@@ -66,6 +67,13 @@ class TestAllModelsRegression(unittest.TestCase):
                 **params
             }
             
+            for dep in metadata.get('optional_dependencies', []):
+                try:
+                    importlib.import_module(dep)
+                except ImportError:
+                    self.skipTest(f"Optional dependency '{dep}' not installed")
+                    return
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 result = model_func(**current_kwargs)

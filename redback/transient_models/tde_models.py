@@ -13,6 +13,12 @@ from astropy.cosmology import Planck18 as cosmo  # noqa
 import astropy.units as uu
 from scipy.interpolate import interp1d
 
+
+def _strictly_positive_linspace(stop, number):
+    start = max(np.finfo(float).tiny, stop * 1e-12)
+    return np.linspace(start, stop, number)
+
+
 def _analytic_fallback(time, l0, t_0):
     """
     :param time: time in days
@@ -161,34 +167,35 @@ def _cooling_envelope(mbh_6, stellar_mass, eta, alpha, beta, **kwargs):
     Teff[0] = 1.0e10 * ((Ledd40 + Edotfb40[0]) / (4.0 * np.pi * cc.sigma_sb * Rph[0] ** (2.0))) ** (0.25)
 
     t = time_temp
-    for ii in range(1, len(time_temp)):
-        Me[ii] = Me[ii - 1] - (MdotBH[ii - 1] - Mdotfb[ii - 1]) * (t[ii] - t[ii - 1])
-        # update envelope energy due to SMBH heating + radiative losses
-        Ee40[ii] = Ee40[ii - 1] + (Ledd40 - Edotbh40[ii - 1]) * (t[ii] - t[ii - 1])
-        # update envelope radius based on its new energy
-        Rv[ii] = ((2.0 * cc.graviational_constant * mbh_6 * 1.0e6 * Me[ii]) / (5.0 * Ee40[ii])) * (2.0e-7)
-        # update envelope optical depth
-        Lamb[ii] = 0.38 * Me[ii] / (10.0 * np.pi * Rv[ii] ** (2.0))
-        # update envelope photosphere radius
-        Rph[ii] = Rv[ii] * (1.0 + np.log(Lamb[ii]))
-        # update accretion radius
-        Racc[ii] = zeta * Rv[0] * (t[ii] / tfb) ** (2. / 3.)
-        # update fall-back heating rate in 1e40 erg/s
-        Edotfb40[ii] = (cc.graviational_constant * mbh_6 * 1.0e6 * Mdotfb[ii] / Racc[ii]) * (2.0e-7)
-        # update total radiated luminosity
-        Lrad[ii] = Ledd40 + Edotfb40[ii]
-        # update photosphere temperature in K
-        Teff[ii] = 1.0e10 * ((Ledd40 + Edotfb40[ii]) / (4.0 * np.pi * cc.sigma_sb * Rph[ii] ** (2.0))) ** (0.25)
-        # update SMBH accretion timescale in seconds
-        tacc[ii] = 2.2e-17 * (10. / (3.0 * alpha)) * (Rv[ii] ** (2.0)) / (
-                    cc.graviational_constant * mbh_6 * 1.0e6 * Rcirc) ** (0.5) * (
-                       hoverR) ** (-2.0)
-        # update SMBH accretion rate in g/s
-        MdotBH[ii] = (Me[ii] / tacc[ii])
-        # update proxy X-ray luminosity
-        LX40[ii] = 0.01 * (MdotBH[ii] / 1.0e20) * (cc.speed_of_light ** (2.0) / 1.0e20)
-        # update SMBH feedback heating rate
-        Edotbh40[ii] = eta * cc.speed_of_light ** (2.0) * (Me[ii] / tacc[ii]) * (1.0e-40)
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        for ii in range(1, len(time_temp)):
+            Me[ii] = Me[ii - 1] - (MdotBH[ii - 1] - Mdotfb[ii - 1]) * (t[ii] - t[ii - 1])
+            # update envelope energy due to SMBH heating + radiative losses
+            Ee40[ii] = Ee40[ii - 1] + (Ledd40 - Edotbh40[ii - 1]) * (t[ii] - t[ii - 1])
+            # update envelope radius based on its new energy
+            Rv[ii] = ((2.0 * cc.graviational_constant * mbh_6 * 1.0e6 * Me[ii]) / (5.0 * Ee40[ii])) * (2.0e-7)
+            # update envelope optical depth
+            Lamb[ii] = 0.38 * Me[ii] / (10.0 * np.pi * Rv[ii] ** (2.0))
+            # update envelope photosphere radius
+            Rph[ii] = Rv[ii] * (1.0 + np.log(Lamb[ii]))
+            # update accretion radius
+            Racc[ii] = zeta * Rv[0] * (t[ii] / tfb) ** (2. / 3.)
+            # update fall-back heating rate in 1e40 erg/s
+            Edotfb40[ii] = (cc.graviational_constant * mbh_6 * 1.0e6 * Mdotfb[ii] / Racc[ii]) * (2.0e-7)
+            # update total radiated luminosity
+            Lrad[ii] = Ledd40 + Edotfb40[ii]
+            # update photosphere temperature in K
+            Teff[ii] = 1.0e10 * ((Ledd40 + Edotfb40[ii]) / (4.0 * np.pi * cc.sigma_sb * Rph[ii] ** (2.0))) ** (0.25)
+            # update SMBH accretion timescale in seconds
+            tacc[ii] = 2.2e-17 * (10. / (3.0 * alpha)) * (Rv[ii] ** (2.0)) / (
+                        cc.graviational_constant * mbh_6 * 1.0e6 * Rcirc) ** (0.5) * (
+                           hoverR) ** (-2.0)
+            # update SMBH accretion rate in g/s
+            MdotBH[ii] = (Me[ii] / tacc[ii])
+            # update proxy X-ray luminosity
+            LX40[ii] = 0.01 * (MdotBH[ii] / 1.0e20) * (cc.speed_of_light ** (2.0) / 1.0e20)
+            # update SMBH feedback heating rate
+            Edotbh40[ii] = eta * cc.speed_of_light ** (2.0) * (Me[ii] / tacc[ii]) * (1.0e-40)
 
     output = namedtuple('output', ['bolometric_luminosity', 'photosphere_temperature',
                                    'photosphere_radius', 'lum_xray', 'accretion_radius',
@@ -212,11 +219,12 @@ def _cooling_envelope(mbh_6, stellar_mass, eta, alpha, beta, **kwargs):
         termination_time_id = 2
 
     nu = 6.0e14
-    expon = 1. / (np.exp(cc.planck * nu / (cc.boltzmann_constant * Teff)) - 1.0)
-    nuLnu40 = (8.0 * np.pi ** (2.0) * Rph ** (2.0) / cc.speed_of_light ** (2.0))
-    nuLnu40 = nuLnu40 * ((cc.planck * nu) * (nu ** (2.0))) / 1.0e30
-    nuLnu40 = nuLnu40 * expon
-    nuLnu40 = nuLnu40 * (nu / 1.0e10)
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore', under='ignore'):
+        expon = 1. / (np.exp(cc.planck * nu / (cc.boltzmann_constant * Teff)) - 1.0)
+        nuLnu40 = (8.0 * np.pi ** (2.0) * Rph ** (2.0) / cc.speed_of_light ** (2.0))
+        nuLnu40 = nuLnu40 * ((cc.planck * nu) * (nu ** (2.0))) / 1.0e30
+        nuLnu40 = nuLnu40 * expon
+        nuLnu40 = nuLnu40 * (nu / 1.0e10)
 
     output.bolometric_luminosity = Lrad[:constraint] * 1e40
     output.photosphere_temperature = Teff[:constraint]
@@ -278,9 +286,12 @@ def cooling_envelope(time, redshift, mbh_6, stellar_mass, eta, alpha, beta, **kw
         time = time * cc.day_to_s
         frequency, time = calc_kcorrected_properties(frequency=frequency, redshift=redshift, time=time)
 
-        # interpolate properties onto observation times post tfb
-        temp_func = interp1d(output.time_since_fb, y=output.photosphere_temperature)
-        rad_func = interp1d(output.time_since_fb, y=output.photosphere_radius)
+        # interpolate properties onto observation times post tfb;
+        # times beyond model termination return zero flux naturally
+        temp_func = interp1d(output.time_since_fb, y=output.photosphere_temperature,
+                             bounds_error=False, fill_value=0.0)
+        rad_func = interp1d(output.time_since_fb, y=output.photosphere_radius,
+                            bounds_error=False, fill_value=0.0)
 
         temp = temp_func(time)
         photosphere = rad_func(time)
@@ -353,7 +364,7 @@ def gaussianrise_cooling_envelope_bolometric(time, peak_time, sigma_t, mbh_6, st
     norm = f2 / f1
 
     # evaluate giant array of bolometric luminosities
-    tt_pre_transition = np.linspace(0, transition_time, 100)
+    tt_pre_transition = _strictly_positive_linspace(transition_time, 100)
     # Only use cooling envelope times after the transition
     tt_post_transition = output.time_temp[output.time_temp >= transition_time]
 
@@ -418,7 +429,7 @@ def smooth_exponential_powerlaw_cooling_envelope_bolometric(time, peak_time, alp
     norm = f2 / f1
 
     # evaluate giant array of bolometric luminosities
-    tt_pre_transition = np.linspace(0, transition_time, 100)
+    tt_pre_transition = _strictly_positive_linspace(transition_time, 100)
     # Only use cooling envelope times after the transition
     tt_post_transition = output.time_temp[output.time_temp >= transition_time]
 
@@ -495,7 +506,7 @@ def gaussianrise_cooling_envelope(time, redshift, peak_time, sigma_t, mbh_6, ste
         # build flux density function for each frequency
         flux_den_interp_func = {}
         for freq in unique_frequency:
-            tt_pre_fb = np.linspace(0, stitching_point / cc.day_to_s, 200) * cc.day_to_s
+            tt_pre_fb = _strictly_positive_linspace(stitching_point, 200)
             tt_post_fb = xi * (output.time_temp * (1 + redshift))
             total_time = np.concatenate([tt_pre_fb, tt_post_fb])
             f1 = pm.gaussian_rise(time=tt_pre_fb, a_1=norm_dict[freq],
@@ -536,7 +547,7 @@ def gaussianrise_cooling_envelope(time, redshift, peak_time, sigma_t, mbh_6, ste
 
         flux_den_interp_func = {}
         for band in unique_bands:
-            tt_pre_fb = np.linspace(0, stitching_point / cc.day_to_s, 100) * cc.day_to_s
+            tt_pre_fb = _strictly_positive_linspace(stitching_point, 100)
             tt_post_fb = output.time_temp * (1 + redshift)
             total_time = np.concatenate([tt_pre_fb, tt_post_fb])
             f1 = pm.gaussian_rise(time=tt_pre_fb, a_1=norm_dict[band],
@@ -616,7 +627,7 @@ def bpl_cooling_envelope(time, redshift, peak_time, alpha_1, alpha_2, mbh_6, ste
         # build flux density function for each frequency
         flux_den_interp_func = {}
         for freq in unique_frequency:
-            tt_pre_fb = np.linspace(0, stitching_point / cc.day_to_s, 200) * cc.day_to_s
+            tt_pre_fb = _strictly_positive_linspace(stitching_point, 200)
             tt_post_fb = xi * (output.time_temp * (1 + redshift))
             total_time = np.concatenate([tt_pre_fb, tt_post_fb])
             f1 = pm.exponential_powerlaw(time=tt_pre_fb, a_1=norm_dict[freq],
@@ -657,7 +668,7 @@ def bpl_cooling_envelope(time, redshift, peak_time, alpha_1, alpha_2, mbh_6, ste
 
         flux_den_interp_func = {}
         for band in unique_bands:
-            tt_pre_fb = np.linspace(0, stitching_point / cc.day_to_s, 100) * cc.day_to_s
+            tt_pre_fb = _strictly_positive_linspace(stitching_point, 100)
             tt_post_fb = output.time_temp * (1 + redshift)
             total_time = np.concatenate([tt_pre_fb, tt_post_fb])
             f1 = pm.exponential_powerlaw(time=tt_pre_fb, a_1=norm_dict[band],
@@ -694,7 +705,7 @@ def tde_analytical_bolometric(time, l0, t_0_turn, **kwargs):
     lbol = _analytic_fallback(time=time, l0=l0, t_0=t_0_turn)
     if _interaction_process is not None:
         dense_resolution = kwargs.get("dense_resolution", 1000)
-        dense_times = np.linspace(0, time[-1] + 100, dense_resolution)
+        dense_times = np.geomspace(1e-5, time[-1] + 100, dense_resolution)
         dense_lbols = _analytic_fallback(time=dense_times, l0=l0, t_0=t_0_turn)
         interaction_class = _interaction_process(time=time, dense_times=dense_times, luminosity=dense_lbols, **kwargs)
         lbol = interaction_class.new_luminosity
@@ -1126,7 +1137,7 @@ def _tde_fallback_all_outputs(time, mbh6, mstar, tvisc, bb, eta, leddlimit, **kw
     """
     _interaction_process = kwargs.get("interaction_process", ip.Viscous)
     dense_resolution = kwargs.get("dense_resolution", 1000)
-    dense_times = np.linspace(0, time[-1] + 100, dense_resolution)
+    dense_times = np.geomspace(1e-5, time[-1] + 100, dense_resolution)
     outs = _tde_mosfit_engine(times=dense_times, mbh6=mbh6, mstar=mstar, b=bb, efficiency=eta,
                               leddlimit=leddlimit, **kwargs)
     dense_lbols = outs.luminosities

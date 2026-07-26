@@ -226,6 +226,87 @@ class TestTransient(unittest.TestCase):
         # self.transient.plot_data()
 
 
+class TestFXT(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.energy_edges = np.array([0.3, 1.0, 3.0, 10.0])
+        self.counts = np.array([10, 20, 30])
+        self.exposure = 100.0
+
+    def test_initialization_count_spectrum(self):
+        transient = redback.transient.FXT.from_counts(
+            name="FXT001", counts=self.counts, exposure=self.exposure,
+            energy_edges_keV=self.energy_edges, instrument="XRT", energy_range=(0.3, 10.0))
+
+        self.assertEqual("FXT001", transient.name)
+        self.assertEqual("spectrum_counts", transient.data_mode)
+        self.assertTrue(np.array_equal(self.counts, transient.dataset.counts))
+        self.assertEqual(self.exposure, transient.dataset.exposure)
+        self.assertEqual("XRT", transient.instrument)
+        self.assertEqual((0.3, 10.0), transient.energy_range)
+        self.assertEqual(0.3, transient.dataset.active_energy_min)
+        self.assertEqual(10.0, transient.dataset.active_energy_max)
+        self.assertEqual("fxt/", transient.directory_structure.directory_path)
+
+    def test_count_rate_density_converts_to_counts(self):
+        rate_density = np.array([1.0, 2.0, 3.0])
+        transient = redback.transient.FXT.from_count_rate_density(
+            name="FXT001", count_rate_density=rate_density, exposure=self.exposure,
+            energy_edges_keV=self.energy_edges)
+
+        widths = self.energy_edges[1:] - self.energy_edges[:-1]
+        expected_counts = rate_density * self.exposure * widths
+        np.testing.assert_allclose(expected_counts, transient.dataset.counts)
+
+    def test_count_rate_density_with_background_exposure(self):
+        rate_density = np.array([1.0, 2.0, 3.0])
+        background_rate_density = np.array([0.1, 0.2, 0.3])
+        background_exposure = 50.0
+        transient = redback.transient.FXT.from_count_rate_density(
+            name="FXT001", count_rate_density=rate_density, exposure=self.exposure,
+            energy_edges_keV=self.energy_edges, background_rate_density=background_rate_density,
+            bkg_exposure=background_exposure)
+
+        widths = self.energy_edges[1:] - self.energy_edges[:-1]
+        expected_background_counts = background_rate_density * background_exposure * widths
+        np.testing.assert_allclose(expected_background_counts, transient.dataset.counts_bkg)
+        self.assertEqual(background_exposure, transient.dataset.bkg_exposure)
+
+    def test_count_rate_density_plots_counts_per_second_per_keV(self):
+        import matplotlib.pyplot as plt
+
+        transient = redback.transient.FXT.from_count_rate_density(
+            name="FXT001", count_rate_density=np.array([1.0, 2.0, 3.0]),
+            exposure=self.exposure, energy_edges_keV=self.energy_edges)
+
+        axes = transient.plot_data(show=False, save=False)
+        self.assertEqual("Counts/s/keV", axes.get_ylabel())
+        plt.close(axes.figure)
+
+    def test_invalid_counts_shape_raises(self):
+        with self.assertRaises(ValueError):
+            redback.transient.FXT.from_counts(
+                name="FXT001", counts=np.array([10, 20]), exposure=self.exposure,
+                energy_edges_keV=self.energy_edges)
+
+    def test_invalid_direct_dataset_raises(self):
+        from redback.spectral.dataset import SpectralDataset
+
+        dataset = SpectralDataset(
+            counts=np.array([10.0, 20.0]),
+            exposure=self.exposure,
+            energy_edges_keV=self.energy_edges,
+        )
+        with self.assertRaises(ValueError):
+            redback.transient.FXT(dataset=dataset, name="FXT001")
+
+    def test_transient_dict_contains_fxt(self):
+        self.assertIs(redback.transient.TRANSIENT_DICT["fxt"], redback.transient.FXT)
+
+    def test_fxt_has_no_broker_data_getter(self):
+        self.assertNotIn("fxt", redback.get_data.TRANSIENT_TYPES)
+
+
 class TestOpticalTransient(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -520,6 +601,59 @@ class TestOpticalTransient(unittest.TestCase):
         # Check that luminosity is positive.
         self.assertGreater(df_bol['lum_bol'].iloc[0], 0, "Corrected bolometric luminosity should be positive.")
 
+    def test_estimate_bb_params_invalid_method(self):
+        """Test that unsupported blackbody fit methods fail explicitly."""
+        transient_bb = redback.transient.OpticalTransient(
+            time=np.array([10, 10.1, 10.2]),
+            flux_density=np.array([1e4, 1.05e4, 1.1e4]),
+            redshift=0.1, data_mode="flux_density", name="TestBB",
+            frequency=np.array([5e14, 6e14, 7e14]), use_phase_model=False)
+        with self.assertRaises(ValueError):
+            transient_bb.estimate_bb_params(method="not_a_method")
+
+    def test_estimate_bolometric_luminosity_cutoff_blackbody_method(self):
+        """Test cutoff_blackbody fitting and direct cutoff SED integration."""
+        redshift = 0.1
+        distance = 1e27
+        temperature = 11000.0
+        radius = 8e14
+        cutoff_wavelength = 4500.0
+        absorption_index = 2.0
+        wavelengths = np.array([2500., 3300., 4200., 5200., 6500., 8000.])
+        observer_frequency = redback.utils.lambda_to_nu(wavelengths)
+        source_frequency, _ = redback.utils.calc_kcorrected_properties(
+            frequency=observer_frequency, redshift=redshift, time=0.)
+        flux_density = redback.transient.OpticalTransient._cutoff_blackbody_flux_density_mjy(
+            frequency=source_frequency, temperature=temperature, radius=radius, distance=distance,
+            redshift=redshift, cutoff_wavelength=cutoff_wavelength, absorption_index=absorption_index)
+        flux_density_err = 0.05 * flux_density
+        time = np.array([10.0, 10.05, 10.1, 10.15, 10.2, 10.25])
+
+        transient_bb = redback.transient.OpticalTransient(
+            time=time, flux_density=flux_density, flux_density_err=flux_density_err,
+            redshift=redshift, data_mode="flux_density", name="TestCutoffBB",
+            frequency=observer_frequency, use_phase_model=False)
+        transient_bb.get_filtered_data = lambda: (time, np.zeros(len(time)), flux_density, flux_density_err)
+
+        df_bb = transient_bb.estimate_bb_params(
+            method="cutoff_blackbody", distance=distance, bin_width=1.0, min_filters=3,
+            cutoff_wavelength=cutoff_wavelength, absorption_index=absorption_index)
+        self.assertIsNotNone(df_bb)
+        for col in ['cutoff_wavelength', 'absorption_index', 'method']:
+            self.assertIn(col, df_bb.columns)
+        self.assertEqual(df_bb['method'].iloc[0], 'cutoff_blackbody')
+
+        df_bol = transient_bb.estimate_bolometric_luminosity(
+            methods="cutoff_blackbody", distance=distance, bin_width=1.0, min_filters=3,
+            cutoff_wavelength=cutoff_wavelength, absorption_index=absorption_index)
+        self.assertIsNotNone(df_bol)
+        for col in ['lum_bol', 'lum_bol_bb', 'cutoff_fraction', 'cutoff_boost']:
+            self.assertIn(col, df_bol.columns)
+        self.assertGreater(df_bol['lum_bol'].iloc[0], 0)
+        self.assertGreater(df_bol['lum_bol_bb'].iloc[0], df_bol['lum_bol'].iloc[0])
+        self.assertGreater(df_bol['cutoff_fraction'].iloc[0], 0)
+        self.assertLessEqual(df_bol['cutoff_fraction'].iloc[0], 1)
+
 
 class TestAfterglow(unittest.TestCase):
 
@@ -590,6 +724,29 @@ class TestAfterglow(unittest.TestCase):
     def test_stripped_name(self):
         expected = "070809"
         self.assertEqual(expected, self.sgrb._stripped_name)
+
+    def test_generic_afterglow_preserves_non_grb_name(self):
+        afterglow = redback.transient.afterglow.Afterglow(
+            time=self.time, time_err=self.time_err, flux=self.y, flux_err=self.y_err,
+            data_mode=self.data_mode, name="AT2020xnd",
+            use_phase_model=self.use_phase_model)
+        self.assertEqual("AT2020xnd", afterglow.name)
+        self.assertEqual("afterglow/", afterglow.directory_structure.directory_path)
+
+    def test_sgrb_normalises_grb_name(self):
+        sgrb = redback.transient.afterglow.SGRB(
+            time=self.time, time_err=self.time_err, flux=self.y, flux_err=self.y_err,
+            data_mode=self.data_mode, name="070809",
+            use_phase_model=self.use_phase_model)
+        self.assertEqual("GRB070809", sgrb.name)
+        self.assertIn("GRBData/afterglow", sgrb.directory_structure.directory_path)
+
+    def test_sgrb_normalises_grb_name_with_space(self):
+        sgrb = redback.transient.afterglow.SGRB(
+            time=self.time, time_err=self.time_err, flux=self.y, flux_err=self.y_err,
+            data_mode=self.data_mode, name="GRB 070809",
+            use_phase_model=self.use_phase_model)
+        self.assertEqual("GRB070809", sgrb.name)
 
     def test_truncate(self):
         expected_x = np.array([1.0, 2.0])

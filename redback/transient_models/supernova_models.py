@@ -179,7 +179,7 @@ def sn1998bw_template(time, redshift, amplitude, **kwargs):
     model = sncosmo.Model(source='v19-1998bw')
     original_redshift = 0.0085
     cosmology = kwargs.get("cosmology", cosmo)
-    original_dl = (43*uu.Mpc).to(uu.cm).value
+    original_dl =  (43*uu.Mpc).to(uu.cm).value
 
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
@@ -188,7 +188,8 @@ def sn1998bw_template(time, redshift, amplitude, **kwargs):
     tts = np.geomspace(0.01, 90, 200)
     lls = np.linspace(1620, 11000, 300)
     f_lambda = model.flux(tts, lls) #erg/s/cm^2/Angstrom.
-    l_lambda = f_lambda * 4 * np.pi * original_dl**2  # erg/s/Angstrom
+    # f_lambda is observer-frame flux: f = L / (4*pi*dl^2*(1+z)), so L = f*4*pi*dl^2*(1+z)
+    l_lambda = f_lambda * 4 * np.pi * original_dl**2 * (1 + original_redshift)  # erg/s/Angstrom
 
     # We consider this the rest frame spectrum of 1998bw. Now we can redshift it and scale it.
     time_obs = tts * (1 + redshift)
@@ -264,7 +265,7 @@ def sn1998bw_template_with_extrapolation(time, redshift, amplitude, **kwargs):
     model = sncosmo.Model(source='v19-1998bw')
     original_redshift = 0.0085
     cosmology = kwargs.get("cosmology", cosmo)
-    original_dl = (43*uu.Mpc).to(uu.cm).value
+    original_dl = (43.*uu.Mpc).to(uu.cm).value
 
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
@@ -308,9 +309,10 @@ def sn1998bw_template_with_extrapolation(time, redshift, amplitude, **kwargs):
         f_row[lls_rest > red_lim] = bb_unit_lambda(lls_rest[lls_rest > red_lim]) * s_red
         # UV Extrapolation
         f_row[lls_rest < blue_lim] = bb_unit_lambda(lls_rest[lls_rest < blue_lim]) * s_blue
-        # Scale to luminosity then back to new observer distance
-        l_lambda = f_row * 4 * np.pi * original_dl**2
-        f_lambda_obs = amplitude * (l_lambda / (4 * np.pi * dl_new**2)) / (1 + redshift) # accounting for bandwidth stretching
+        # Scale to luminosity then back to new observer distance.
+        # f_lambda is observer-frame: f = L / (4*pi*dl^2*(1+z)), so L = f*4*pi*dl^2*(1+z)
+        l_lambda = f_row * 4 * np.pi * original_dl**2 * (1 + original_redshift)
+        f_lambda_obs = amplitude * (l_lambda / (4 * np.pi * dl_new**2)) / (1 + redshift)
         f_lambda_grid[i, :] = f_lambda_obs
 
     # Final conversion and interpolation
@@ -372,7 +374,7 @@ def exponential_powerlaw_bolometric(time, lbol_0, alpha_1, alpha_2, tpeak_d, **k
                                 tpeak=tpeak_d, **kwargs)
     if _interaction_process is not None:
         dense_resolution = kwargs.get("dense_resolution", 1000)
-        dense_times = np.linspace(0, time[-1]+100, dense_resolution)
+        dense_times = np.geomspace(1e-5, time[-1]+100, dense_resolution)
         dense_lbols = exponential_powerlaw(dense_times, a_1=lbol_0, alpha_1=alpha_1, alpha_2=alpha_2,
                                 tpeak=tpeak_d, **kwargs)
         interaction_class = _interaction_process(time=time, dense_times=dense_times, luminosity=dense_lbols, **kwargs)
@@ -962,7 +964,7 @@ def arnett_bolometric(time, f_nickel, mej, **kwargs):
     lbol = _nickelcobalt_engine(time=time, f_nickel=f_nickel, mej=mej)
     if _interaction_process is not None:
         dense_resolution = kwargs.get("dense_resolution", 1000)
-        dense_times = np.linspace(0, time[-1]+100, dense_resolution)
+        dense_times = np.geomspace(1e-5, time[-1]+100, dense_resolution)
         dense_lbols = _nickelcobalt_engine(time=dense_times, f_nickel=f_nickel, mej=mej)
         interaction_class = _interaction_process(time=time, dense_times=dense_times, luminosity=dense_lbols, mej=mej, **kwargs)
         lbol = interaction_class.new_luminosity
@@ -1462,7 +1464,7 @@ def basic_magnetar_powered_bolometric(time, p0, bp, mass_ns, theta_pb, **kwargs)
     lbol = basic_magnetar(time=time * day_to_s, p0=p0, bp=bp, mass_ns=mass_ns, theta_pb=theta_pb)
     if _interaction_process is not None:
         dense_resolution = kwargs.get("dense_resolution", 1000)
-        dense_times = np.linspace(0, time[-1]+100, dense_resolution)
+        dense_times = np.geomspace(1e-5, time[-1]+100, dense_resolution)
         dense_lbols = basic_magnetar(time=dense_times * day_to_s, p0=p0, bp=bp, mass_ns=mass_ns, theta_pb=theta_pb)
         interaction_class = _interaction_process(time=time, dense_times=dense_times, luminosity=dense_lbols,**kwargs)
         lbol = interaction_class.new_luminosity
@@ -1665,7 +1667,7 @@ def magnetar_nickel(time, redshift, f_nickel, mej, p0, bp, mass_ns, theta_pb, **
 
         if kwargs['interaction_process'] is not None:
             dense_resolution = kwargs.get("dense_resolution", 1000)
-            dense_times = np.linspace(0, time[-1]+100, dense_resolution)
+            dense_times = np.geomspace(1e-5, time[-1]+100, dense_resolution)
             dense_lbols = _nickelcobalt_engine(time=dense_times, f_nickel=f_nickel, mej=mej)
             dense_lbols += basic_magnetar(time=dense_times * day_to_s, p0=p0, bp=bp, mass_ns=mass_ns, theta_pb=theta_pb)
             interaction_class = kwargs['interaction_process'](time=time, dense_times=dense_times, luminosity=dense_lbols,
@@ -1686,9 +1688,19 @@ def magnetar_nickel(time, redshift, f_nickel, mej, p0, bp, mass_ns, theta_pb, **
         time_observer_frame = time_temp * (1. + redshift)
         frequency, time = calc_kcorrected_properties(frequency=lambda_to_nu(lambda_observer_frame),
                                                      redshift=redshift, time=time_observer_frame)
-        lbol_mag = basic_magnetar(time=time * day_to_s, p0=p0, bp=bp, mass_ns=mass_ns, theta_pb=theta_pb)
-        lbol_arnett = _nickelcobalt_engine(time=time, f_nickel=f_nickel, mej=mej)
-        lbol = lbol_mag + lbol_arnett
+        if kwargs['interaction_process'] is not None:
+            dense_resolution = kwargs.get("dense_resolution", 1000)
+            dense_times = np.geomspace(1e-5, time[-1] + 100, dense_resolution)
+            dense_lbols = _nickelcobalt_engine(time=dense_times, f_nickel=f_nickel, mej=mej)
+            dense_lbols += basic_magnetar(time=dense_times * day_to_s, p0=p0, bp=bp, mass_ns=mass_ns, theta_pb=theta_pb)
+            interaction_class = kwargs['interaction_process'](time=time, dense_times=dense_times, luminosity=dense_lbols,
+                                                              mej=mej, **kwargs)
+            lbol = interaction_class.new_luminosity
+        else:
+            lbol_mag = basic_magnetar(time=time * day_to_s, p0=p0, bp=bp, mass_ns=mass_ns, theta_pb=theta_pb)
+            lbol_arnett = _nickelcobalt_engine(time=time, f_nickel=f_nickel, mej=mej)
+            lbol = lbol_mag + lbol_arnett
+
         photo = kwargs['photosphere'](time=time, luminosity=lbol, **kwargs)
         sed_1 = kwargs['sed'](temperature=photo.photosphere_temperature, r_photosphere=photo.r_photosphere,
                     frequency=frequency[:,None], luminosity_distance=dl)
@@ -2393,7 +2405,7 @@ def general_magnetar_slsn_bolometric(time, l0, tsd, nn, **kwargs):
     lbol = magnetar_only(time=time * day_to_s, l0=l0, tau=tsd * day_to_s, nn=nn)
     if _interaction_process is not None:
         dense_resolution = kwargs.get("dense_resolution", 1000)
-        dense_times = np.linspace(0, time[-1]+100, dense_resolution)
+        dense_times = np.geomspace(1e-5, time[-1]+100, dense_resolution)
         dense_lbols = magnetar_only(time=dense_times * day_to_s, l0=l0, tau=tsd * day_to_s, nn=nn)
         interaction_class = _interaction_process(time=time, dense_times=dense_times,
                                                  luminosity=dense_lbols,**kwargs)

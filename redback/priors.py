@@ -2,19 +2,123 @@ import numpy as np
 import os
 
 import bilby.core.prior
-from bilby.core.prior import PriorDict
+from bilby.core.prior import Constraint, PriorDict
 
 import redback.model_library
 import redback.constraints
 from redback.utils import logger
 
-_constraint_map = {
-    'slsn': redback.constraints.slsn_constraint,
-    'slsn_bolometric': redback.constraints.slsn_constraint,
+_constraint_settings = {
+    'slsn': (
+        redback.constraints.slsn_constraint,
+        {'e_rot_constraint': (0, 1), 't_nebula_min': (0, 400)}
+    ),
+    'slsn_bolometric': (
+        redback.constraints.slsn_constraint,
+        {'e_rot_constraint': (0, 1), 't_nebula_min': (0, 400)}
+    ),
+    'basic_magnetar_powered': (
+        redback.constraints.basic_magnetar_powered_sn_constraints,
+        {'erot_constraint': (0, 1)}
+    ),
+    'general_magnetar_slsn': (
+        redback.constraints.general_magnetar_powered_sn_constraints,
+        {'erot_constraint': (0, 1)}
+    ),
+    'gaussianrise_tde': (
+        redback.constraints.gaussianrise_tde_constraints,
+        {'beta_high': (0, 1), 'tfb_max': (0, 1)}
+    ),
+    # eta and beta validity depends on mbh_6 and stellar_mass; pass constraint=True to enforce this.
+    'cooling_envelope': (
+        redback.constraints.cooling_envelope_constraints,
+        {'eta_min_ratio': (0, 1), 'beta_max_ratio': (0, 1)}
+    ),
+    'gaussianrise_cooling_envelope': (
+        redback.constraints.cooling_envelope_constraints,
+        {'eta_min_ratio': (0, 1), 'beta_max_ratio': (0, 1), 'gaussian_stitching_tail': (0, 35)}
+    ),
+    'gaussianrise_cooling_envelope_bolometric': (
+        redback.constraints.cooling_envelope_constraints,
+        {'eta_min_ratio': (0, 1), 'beta_max_ratio': (0, 1), 'gaussian_stitching_tail': (0, 35)}
+    ),
+    'bpl_cooling_envelope': (
+        redback.constraints.cooling_envelope_constraints,
+        {'eta_min_ratio': (0, 1), 'beta_max_ratio': (0, 1)}
+    ),
+    'smooth_exponential_powerlaw_cooling_envelope_bolometric': (
+        redback.constraints.cooling_envelope_constraints,
+        {'eta_min_ratio': (0, 1), 'beta_max_ratio': (0, 1)}
+    ),
+    'arnett': (
+        redback.constraints.nuclear_burning_constraints,
+        {'emax_constraint': (0, 1)}
+    ),
+    'tde_analytical': (
+        redback.constraints.simple_fallback_constraints,
+        {'en_constraint': (0, 1), 't_nebula_min': (0, 400)}
+    ),
+    'csm_interaction': (
+        redback.constraints.csm_constraints,
+        {'shock_time': (0, 0.5), 'photosphere_constraint_1': (0, 1), 'photosphere_constraint_2': (0, 1)}
+    ),
+    'csm_nickel': (
+        redback.constraints.csm_constraints,
+        {'shock_time': (0, 0.5), 'photosphere_constraint_1': (0, 1), 'photosphere_constraint_2': (0, 1)}
+    ),
+    'polytrope_eos_two_component_bns': (
+        redback.constraints.polytrope_eos_two_component_bns_constraints,
+        {'maximum_eos_mass': (1.5, 5), 'maximum_speed_of_sound': (0, 1.15),
+         'dynamical_ejecta_mej_min': (0, 1), 'dynamical_ejecta_mej_max': (0, 1),
+         'dynamical_ejecta_vej_min': (0, 1), 'dynamical_ejecta_vej_max': (0, 1),
+         'disk_wind_ejecta_mej_min': (0, 1), 'disk_wind_ejecta_mej_max': (0, 1),
+         'disk_wind_ejecta_vej_min': (0, 1), 'disk_wind_ejecta_vej_max': (0, 1)}
+    ),
+    'one_component_ejecta_relation': (
+        redback.constraints.one_component_bns_ejecta_relation_constraints,
+        {'ejecta_mej_min': (0, 1), 'ejecta_mej_max': (0, 1),
+         'ejecta_vej_min': (0, 1), 'ejecta_vej_max': (0, 1)}
+    ),
+    'one_component_ejecta_relation_projection': (
+        redback.constraints.one_component_bns_ejecta_relation_projection_constraints,
+        {'ejecta_mej_min': (0, 1), 'ejecta_mej_max': (0, 1),
+         'ejecta_vej_min': (0, 1), 'ejecta_vej_max': (0, 1)}
+    ),
+    'two_component_bns_ejecta_relation': (
+        redback.constraints.two_component_bns_ejecta_relation_constraints,
+        {'dynamical_ejecta_mej_min': (0, 1), 'dynamical_ejecta_mej_max': (0, 1),
+         'dynamical_ejecta_vej_min': (0, 1), 'dynamical_ejecta_vej_max': (0, 1),
+         'disk_wind_ejecta_mej_min': (0, 1), 'disk_wind_ejecta_mej_max': (0, 1),
+         'disk_wind_ejecta_vej_min': (0, 1), 'disk_wind_ejecta_vej_max': (0, 1)}
+    ),
+    'one_component_nsbh_ejecta_relation': (
+        redback.constraints.one_component_nsbh_ejecta_relation_constraints,
+        {'ejecta_mej_min': (0, 1), 'ejecta_mej_max': (0, 1),
+         'ejecta_vej_min': (0, 1), 'ejecta_vej_max': (0, 1)}
+    ),
+    'two_component_nsbh_ejecta_relation': (
+        redback.constraints.two_component_nsbh_ejecta_relation_constraints,
+        {'dynamical_ejecta_mej_min': (0, 1), 'dynamical_ejecta_mej_max': (0, 1),
+         'dynamical_ejecta_vej_min': (0, 1), 'dynamical_ejecta_vej_max': (0, 1),
+         'disk_wind_ejecta_mej_min': (0, 1), 'disk_wind_ejecta_mej_max': (0, 1),
+         'disk_wind_ejecta_vej_min': (0, 1), 'disk_wind_ejecta_vej_max': (0, 1)}
+    ),
 }
 
 
-def get_priors(model, times=None, y=None, yerr=None, dt=None, **kwargs):
+def _apply_constraints(priors, model):
+    setting = _constraint_settings.get(model)
+    if setting is None:
+        logger.warning(f"No built-in constraints are configured for model {model}. Returning unconstrained priors.")
+        return priors
+    conversion_function, constraint_bounds = setting
+    priors.conversion_function = conversion_function
+    for name, bounds in constraint_bounds.items():
+        priors[name] = Constraint(*bounds, name=name)
+    return priors
+
+
+def get_priors(model, times=None, y=None, yerr=None, dt=None, constraint=False, **kwargs):
     """
     Get the prior for the given model. If the model is a prompt model, the times, y, and yerr must be provided.
 
@@ -23,6 +127,7 @@ def get_priors(model, times=None, y=None, yerr=None, dt=None, **kwargs):
     :param y: Y values, arbitrary units
     :param yerr: Error on y values, arbitrary units
     :param dt: time interval
+    :param constraint: If True, attach built-in conversion constraints for models with configured constraints.
     :param kwargs: Extra arguments to be passed to the prior function
     :return: priors: PriorDict object
     """
@@ -43,6 +148,8 @@ def get_priors(model, times=None, y=None, yerr=None, dt=None, **kwargs):
         priors = prompt_prior_functions[model](times=times, y=rate, yerr=yerr)
         priors['background_rate'] = bilby.core.prior.LogUniform(minimum=np.min(rate), maximum=np.max(rate),
                                                                 name='background_rate')
+        if constraint:
+            _apply_constraints(priors, model)
         return priors
 
     priors = PriorDict()
@@ -55,8 +162,8 @@ def get_priors(model, times=None, y=None, yerr=None, dt=None, **kwargs):
     try:
         filename = os.path.join(os.path.dirname(__file__), 'priors', f'{model}.prior')
         priors.from_file(filename)
-        if model in _constraint_map:
-            priors.conversion_function = _constraint_map[model]
+        if constraint:
+            _apply_constraints(priors, model)
         return priors
     except FileNotFoundError:
         pass  # Continue to try the non_default_priors folder
@@ -65,6 +172,8 @@ def get_priors(model, times=None, y=None, yerr=None, dt=None, **kwargs):
     try:
         filename = os.path.join(os.path.dirname(__file__), 'priors', 'non_default_priors', f'{model}.prior')
         priors.from_file(filename)
+        if constraint:
+            _apply_constraints(priors, model)
         return priors
     except FileNotFoundError:
         pass  # Continue to try plugin prior providers
@@ -75,6 +184,8 @@ def get_priors(model, times=None, y=None, yerr=None, dt=None, **kwargs):
         try:
             result = provider(model)
             if result is not None:
+                if constraint:
+                    _apply_constraints(result, model)
                 return result
         except Exception as e:
             logger.warning(f"Plugin prior provider failed for model '{model}': {e}")
@@ -104,7 +215,8 @@ def get_gaussian_priors(times, y, yerr, **kwargs):
 
 def get_skew_gaussian_priors(times, y, yerr, **kwargs):
     priors = get_gaussian_priors(times=times, y=y, yerr=yerr, **kwargs)
-    for latex_label, part in zip([r"$\sigma_{\mathrm{rise}}$" r"$\sigma_{\mathrm{rise}}$"], ['rise', 'fall']):
+    for latex_label, part in zip(
+            [r"$\sigma_{\mathrm{rise}}$", r"$\sigma_{\mathrm{fall}}$"], ['rise', 'fall']):
         priors[f'sigma_{part}'] = bilby.core.prior.LogUniform(
             minimum=priors['sigma'].minimum, maximum=priors['sigma'].maximum,
             name=f"sigma_{part}", latex_label=latex_label)
@@ -114,7 +226,8 @@ def get_skew_gaussian_priors(times, y, yerr, **kwargs):
 
 def get_skew_exponential_priors(times, y, yerr, **kwargs):
     priors = get_gaussian_priors(times=times, y=y, yerr=yerr, **kwargs)
-    for latex_label, part in zip([r"$\tau_{\mathrm{rise}}$" r"$\tau_{\mathrm{rise}}$"], ['rise', 'fall']):
+    for latex_label, part in zip(
+            [r"$\tau_{\mathrm{rise}}$", r"$\tau_{\mathrm{fall}}$"], ['rise', 'fall']):
         priors[f'tau_{part}'] = bilby.core.prior.LogUniform(
             minimum=priors['sigma'].minimum, maximum=priors['sigma'].maximum,
             name=f"tau_{part}", latex_label=latex_label)
@@ -135,4 +248,5 @@ def get_fred_priors(times, y, yerr, **kwargs):
 def get_fred_extended_priors(times, y, yerr, **kwargs):
     priors = get_fred_priors(times=times, y=y, yerr=yerr, **kwargs)
     priors['gamma'] = bilby.core.prior.LogUniform(minimum=1e-3, maximum=1e3, name=r"$\gamma$")
-    priors['nu'] = bilby.core.prior.LogUniform(minimum=1e-3, maximum=1e3, name=r"$\nu")
+    priors['nu'] = bilby.core.prior.LogUniform(minimum=1e-3, maximum=1e3, name=r"$\nu$")
+    return priors

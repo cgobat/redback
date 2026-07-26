@@ -345,6 +345,24 @@ class TestFitModelAdditional(unittest.TestCase):
         mock_run_sampler.assert_called_once()
         self.assertEqual(result, self.dummy_result)
 
+    @patch("redback.result.read_in_result", side_effect=Exception("No result"))
+    @patch("bilby.run_sampler", autospec=True)
+    def test_fit_model_prior_none_loads_from_non_default_priors(self, mock_run_sampler, mock_read_result):
+        """fit_model with prior=None must resolve priors from non_default_priors/ without raising."""
+        mock_run_sampler.return_value = self.dummy_result
+        trans = DummyAfterglow(self.outdir)
+        model_kwargs = {"output_format": "flux_density",
+                        "frequency": np.linspace(1e14, 1e15, len(trans.x))}
+        # vegas_tophat lives only in non_default_priors/ — previously caused FileNotFoundError
+        import redback.priors as rp
+        with patch.object(rp, "get_priors", wraps=rp.get_priors) as mock_get_priors:
+            result = fit_model(
+                transient=trans, model="vegas_tophat", outdir=self.outdir,
+                label="NonDefaultPrior", sampler="dynesty", nlive=10, prior=None,
+                walks=10, model_kwargs=model_kwargs, plot=False)
+        mock_get_priors.assert_called_once_with("vegas_tophat")
+        self.assertEqual(result, self.dummy_result)
+
 
 class TestFitSpectralDatasetBranches(unittest.TestCase):
     """Tests for _fit_spectral_dataset statistic selection and validation."""

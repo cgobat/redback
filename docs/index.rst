@@ -42,6 +42,8 @@ API:
    :recursive:
 
    get_data
+   model_library
+   model_metadata
    priors
    plotting
    eos

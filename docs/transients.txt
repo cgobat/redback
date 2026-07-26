@@ -18,13 +18,14 @@ Specific transient object
 
 These parent classes are inherited by some transient specific classes, which provide additional functionality.
 
-- Afterglow: afterglow of a gamma-ray burst
+- Afterglow: generic afterglow data
 
-    - SGRB/LGRB:  short and long gamma-ray bursts
+    - SGRB/LGRB: short and long gamma-ray bursts, including GRB-specific naming, metadata, and Swift directory conventions
 - Kilonova: For kilonovae
 - Prompt: For prompt gamma-ray bursts
 - Supernova: For supernovae of different varieties
 - TDE: For tidal disruption events
+- FXT: For fast X-ray transient count spectra with user-provided data
 
 These classes come with additional functionality and lookup tables which provide metadata useful for further analysis, such as redshift, T90, start time, etc.
 They also allow other processing such as converting flux to luminosity.
@@ -40,6 +41,7 @@ Data modes
 The data modes available for each transient are
 
 - Afterglow: luminosity, flux, flux_density, magnitude
+- FXT: spectrum_counts
 - Kilonova: flux_density, magnitude, flux
 - Prompt: counts, time tagged events
 - Supernova: flux_density, magnitude, luminosity, flux
@@ -96,6 +98,17 @@ Which loads the SGRB, TDE, prompt, and Supernova transient objects with the data
 Note that in the supernova object, we set :code:`phase_model=True`.
 This sets the time attribute of the class to the modified julian date time of the observations.
 This is specifically for situations when users want to also sample the start time of the transient.
+
+FXT objects are not connected to a broker or catalog data getter in :code:`redback`.
+No current :code:`redback.get_data` backend can fetch FXT data, so construct :code:`redback.transient.FXT`
+directly from local, private, simulated, or externally downloaded spectra.
+
+FXT uses the same count-spectrum machinery as :code:`CountsSpectrumTransient`, so the stored data are counts,
+exposure, and energy-bin edges rather than a generic time-series count rate. If your data are already
+counts per second per keV, use :code:`FXT.from_count_rate_density`; redback converts those values back to
+counts using the exposure and energy-bin widths before fitting with Poisson spectral likelihoods.
+Do not pass background-subtracted rates to this constructor if you intend to use C-stat or W-stat; pass
+source-region counts/rates and optional background counts/rates separately.
 
 Loading private/simulated data
 -------------------------
@@ -278,6 +291,12 @@ For example, we can do this for the kilonova object as follows,
 
 Here we are returned a pandas dataframe with the best fit temperature and radius and
 their errors at times dictated by the bin widths where the transient also has a mininum number of filters.
+By default this fits a standard blackbody. To fit a cutoff blackbody instead, use
+:code:`method="cutoff_blackbody"` and pass :code:`cutoff_wavelength` in Angstrom and
+:code:`absorption_index`. The cutoff model suppresses the fitted SED blueward of the cutoff
+as :code:`(wavelength / cutoff_wavelength)**absorption_index`. The cutoff wavelength and
+absorption index are fixed by default, but can be fit with :code:`fit_cutoff_wavelength=True`
+and :code:`fit_absorption_index=True` if the data have enough bands per epoch.
 
 We provide a detailed notebook example `here <https://github.com/nikhil-sarin/redback/blob/master/examples/estimating_blackbody_properties_with_redback.ipynb>`_.
 
@@ -296,7 +315,13 @@ For example, we can do this for the kilonova object as follows,
 
 Here we are returned a pandas dataframe with the bolometric luminosity and its errors at times
 dictated by the bin widths where the transient also has a minimum number of filters.
-Note this method by default works assuming a blackbody SED, but we provide a simple option to include the effects of line blanketing as well as host/MW extinction.
+Note this method by default works assuming a blackbody SED, but we provide options to include
+the effects of line blanketing as well as host/MW extinction. With the default
+:code:`method="blackbody"`, passing :code:`lambda_cut` applies the historical post-fit boost
+correction to a fitted blackbody. With :code:`method="cutoff_blackbody"`, redback instead fits
+the cutoff SED directly and integrates that SED; in this mode :code:`lum_bol` is the cutoff-SED
+luminosity and :code:`lum_bol_bb` is the underlying unsuppressed blackbody luminosity for the
+same fitted temperature and radius.
 
 This data can be easily used to create another transient object with the bolometric luminosity data and then fit.
 Please look at the API for more details and the `examples <https://github.com/nikhil-sarin/redback/blob/master/examples/estimating_lbols.ipynb>`_
@@ -307,4 +332,4 @@ Spectrum object
 :code:`redback` also provides a :code:`spectrum` object which can be used to load, plot, and fit spectral energy distributions.
 These are treated the same for all transients and are generic enough to describe any wavelength spectrum.
 The spectrums can be fit with any :code:`redback` model or any user defined model. And some examples are provided in the
-`examples <https://github.com/nikhil-sarin/redback/blob/examples/>`_ folder on the github repository.
+`examples <https://github.com/nikhil-sarin/redback/blob/master/examples/>`_ folder on the GitHub repository.

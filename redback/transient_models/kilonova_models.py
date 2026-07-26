@@ -1860,6 +1860,13 @@ def _one_component_kilonova_model(time, mej, vej, kappa, **kwargs):
     :param kwargs: temperature_floor
     :return: bolometric_luminosity, temperature, r_photosphere
     """
+    temperature_floor = kwargs.get('temperature_floor', 4000) #kelvin
+    if mej <= 0:
+        bolometric_luminosity = np.zeros_like(time)
+        temperature = np.ones_like(time) * temperature_floor
+        r_photosphere = np.zeros_like(time)
+        return bolometric_luminosity, temperature, r_photosphere
+
     tdays = time/day_to_s
 
     # set up kilonova physics
@@ -1868,7 +1875,6 @@ def _one_component_kilonova_model(time, mej, vej, kappa, **kwargs):
     e_th = 0.36 * (np.exp(-av * tdays) + np.log1p(2.0 * bv * tdays ** dv) / (2.0 * bv * tdays ** dv))
     t0 = 1.3 #seconds
     sig = 0.11  #seconds
-    temperature_floor = kwargs.get('temperature_floor', 4000) #kelvin
 
     beta = 13.7
 

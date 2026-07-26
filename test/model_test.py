@@ -2208,6 +2208,23 @@ class TestOptimalTimeArray(unittest.TestCase):
         # Should converge to better than 10 millimag for typical range
         self.assertLess(max_diff, 0.01, 
                        f"Kilonova model not converged: max diff = {max_diff*1000:.2f} millimag")
+
+    def test_zero_mass_kilonova_component_returns_zero_flux(self):
+        """A zero-mass kilonova component should produce no emission, not NaNs."""
+        import redback
+
+        times = np.array([1.0, 2.0, 3.0])
+        lbol, temperature, radius = redback.transient_models.kilonova_models._one_component_kilonova_model(
+            time=times * 86400, mej=0.0, vej=0.2, kappa=10.0, temperature_floor=1000)
+        flux_density = redback.transient_models.kilonova_models.one_component_kilonova_model(
+            times, redshift=0.05, mej=0.0, vej=0.2, kappa=10.0,
+            temperature_floor=1000, output_format='flux_density', frequency=6e14)
+
+        self.assertTrue(np.all(lbol == 0))
+        self.assertTrue(np.all(radius == 0))
+        self.assertTrue(np.all(temperature == 1000))
+        self.assertTrue(np.all(np.isfinite(flux_density)))
+        self.assertTrue(np.all(flux_density == 0))
     
     def test_kilonova_convergence_extended_range(self):
         """Test convergence for extended kilonova observations (0.1-10 days)."""
@@ -2272,6 +2289,94 @@ class TestOptimalTimeArray(unittest.TestCase):
             
             self.assertLess(max_spacing_1000, max_spacing_300,
                            "Higher resolution should have smaller spacing")
+
+
+class TestTransientModelNumericalStability(unittest.TestCase):
+    """Regression tests for model/prior draws that previously produced NaNs."""
+
+    def test_afterglow_kilonova_sed_flux_density_is_finite(self):
+        time = np.array([0.5, 1.5, 3.0])
+        kwargs = dict(
+            redshift=0.05, av=0.2, thv=0.2, loge0=50.0, thc=0.05, logn0=-2.0,
+            p=2.3, logepse=-1.0, logepsb=-2.0, ksin=1.0, g0=300.0,
+            mej_1=0.02, vej_1=0.2, kappa_1=5.0, temperature_floor_1=1000.0,
+            mej_2=0.02, vej_2=0.25, kappa_2=10.0, temperature_floor_2=1000.0,
+            mej_3=0.02, vej_3=0.3, kappa_3=15.0, temperature_floor_3=1000.0,
+            kappa_gamma=10.0, output_format='flux_density', frequency=np.ones(3) * 6e14)
+
+        output = redback.model_library.all_models_dict['afterglow_kilonova_sed'](time, **kwargs)
+
+        self.assertEqual(len(time), len(output))
+        self.assertTrue(np.all(np.isfinite(output)))
+
+    def test_thermal_synchrotron_extreme_prior_draw_is_finite(self):
+        time = np.array([0.2, 1.0, 3.0])
+        kwargs = dict(
+            redshift=2.068279212864429, logn0=1.6796210543292478,
+            v0=0.42891881955200695, logr0=14.209123467751697,
+            eta=0.49802061185912183, logepse=-4.662509081101716,
+            logepsb=-4.46987665267008, xi=0.8885680613936605,
+            p=2.1079249945557677, output_format='flux_density',
+            frequency=np.ones(3) * 6e14)
+
+        output = redback.model_library.all_models_dict['thermal_synchrotron_fluxdensity'](time, **kwargs)
+
+        self.assertEqual(len(time), len(output))
+        self.assertTrue(np.all(np.isfinite(output)))
+
+    def test_blackbody_wien_tail_does_not_warn_or_return_nan(self):
+        import warnings
+        import redback.sed as sed
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            output = sed.blackbody_to_flux_density(
+                temperature=np.array([1.0]), r_photosphere=np.array([1e15]),
+                dl=1e27, frequency=np.array([1e20]))
+
+        self.assertEqual(len(caught), 0)
+        self.assertTrue(np.all(np.isfinite(output.value)))
+
+    def test_bpl_cooling_envelope_magnitude_stitching_is_finite(self):
+        import warnings
+
+        time = np.array([0.2, 1.0, 3.0])
+        kwargs = dict(
+            redshift=1.0386215947148276, peak_time=11.100090273832208,
+            alpha_1=2.5582969363027157, alpha_2=-2.918675912538071,
+            mbh_6=0.5435580385713842, stellar_mass=2.796277334399519,
+            eta=0.04227850439530022, alpha=0.8485269532649637,
+            beta=3.992058782890639, output_format='magnitude',
+            frequency=np.ones(3) * 6e14, bands=['ztfg'] * 3)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            output = redback.model_library.all_models_dict['bpl_cooling_envelope'](time, **kwargs)
+
+        self.assertEqual(len(caught), 0)
+        self.assertEqual(len(time), len(output))
+        self.assertTrue(np.all(np.isfinite(output)))
+
+    def test_smooth_cooling_envelope_bolometric_stitching_is_finite(self):
+        import warnings
+
+        time = np.array([0.2, 1.0, 3.0])
+        kwargs = dict(
+            peak_time=0.2502146035387994, alpha_1=0.804183381418674,
+            alpha_2=-1.1223519728358182, smoothing_factor=0.8166941940248766,
+            mbh_6=0.11191089396239345, stellar_mass=1.3604488550258733,
+            eta=0.01372041460322567, alpha=0.13895602446317007,
+            beta=2.8216404824467984, output_format='magnitude',
+            frequency=np.ones(3) * 6e14, bands=['ztfg'] * 3)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            output = redback.model_library.all_models_dict[
+                'smooth_exponential_powerlaw_cooling_envelope_bolometric'](time, **kwargs)
+
+        self.assertEqual(len(caught), 0)
+        self.assertEqual(len(time), len(output))
+        self.assertTrue(np.all(np.isfinite(output)))
 
 
 if __name__ == '__main__':
