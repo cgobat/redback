@@ -939,6 +939,8 @@ class Transient(object):
         :return: Indices that map between bands in the data and the unique bands we obtain.
         :rtype: list
         """
+        if self.bands is None:
+            return [np.arange(len(self.x))]
         return [np.where(self.bands == np.array(b))[0] for b in self.unique_bands]
 
     @property

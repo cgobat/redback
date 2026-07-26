@@ -23,6 +23,12 @@ filename = os.path.join(dirname, 'plot_styles/paper.mplstyle')
 plt.style.use(filename)
 
 logger = logging.getLogger('redback')
+logger.propagate = False
+if not logger.handlers:
+    _default_handler = logging.StreamHandler()
+    _default_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(name)s %(levelname)-8s: %(message)s', datefmt='%H:%M'))
+    logger.addHandler(_default_handler)
 _bilby_logger = logging.getLogger('bilby')
 
 
@@ -1078,6 +1084,7 @@ def setup_logger(outdir='.', label=None, log_level='INFO'):
             '%(asctime)s %(name)s %(levelname)-8s: %(message)s', datefmt='%H:%M'))
         stream_handler.setLevel(level)
         logger.addHandler(stream_handler)
+        logger.propagate = False
 
     if not any([type(h) == logging.FileHandler for h in logger.handlers]):
         if label is not None:
