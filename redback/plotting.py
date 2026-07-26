@@ -1339,7 +1339,8 @@ class MagnitudePlotter(Plotter):
         if 'bands_to_plot' in self.kwargs:
             filters = self.kwargs['bands_to_plot']
         if filters is None:
-            return self.transient.unique_bands
+            unique = self.transient.unique_bands
+            return [b for b in unique if b is not None]
         elif str(filters) == 'default':
             return self.transient.default_filters
         return filters
