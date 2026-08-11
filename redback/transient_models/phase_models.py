@@ -74,9 +74,17 @@ def _t0_with_extinction(time, t0, av_host, model_type='supernova', **kwargs):
     t0 = Time(t0, format='mjd')
     time = Time(np.asarray(time, dtype=float), format='mjd')
     time = (time - t0).to(uu.day).value
-    transient_time = time[time >= 0.0]
-    bad_time = time[time < 0.0]
-    output_real = function(transient_time, av_host=av_host, **kwargs)
+    valid_time = time >= 0.0
+    transient_time = time[valid_time]
+    bad_time = time[~valid_time]
+    temp_kwargs = kwargs.copy()
+    if 'frequency' in temp_kwargs:
+        if isinstance(temp_kwargs['frequency'], np.ndarray):
+            temp_kwargs['frequency'] = kwargs['frequency'][valid_time]
+    if 'bands' in temp_kwargs:
+        if isinstance(temp_kwargs['bands'], np.ndarray):
+            temp_kwargs['bands'] = kwargs['bands'][valid_time]
+    output_real = function(transient_time, av_host=av_host, **temp_kwargs)
     if kwargs['output_format'] == 'magnitude':
         output_fake = np.zeros(len(bad_time)) + 5000
     else:
