@@ -58,7 +58,7 @@ def add_filter_svo(filter, label, plot_label=None, overwrite=False):
     # Only add filter to filter database if entry does not exist in the Redback database by default
     
     # If no entry exists or you choose to overwrite an entry
-    if (len(mask) == 0) or ((len(mask) != 0) & overwrite):
+    if (len(mask) == 0) or overwrite:
 
         if len(mask) > 0:
             database_filters.remove_rows(mask)
@@ -135,7 +135,7 @@ def add_filter_user(file, label, plot_label=None, overwrite=False):
 
     # If no entry exists or you choose to overwrite an entry
 
-    if (len(mask) == 0) or ((len(mask) != 0) & overwrite):
+    if (len(mask) == 0) or overwrite:
         
         if len(mask) > 0:
             database_filters.remove_rows(mask)
