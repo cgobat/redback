@@ -9,7 +9,7 @@ from redback.constants import *
 from scipy.interpolate import interp1d
 
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2022ApJ...932...84M')
-def _wr_bh_merger(time, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta, theta, phi_0, kappa_s, kappa_f, kappa_x, N, **kwargs): 
+def _wr_bh_merger(time, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta, theta, phi_0, kappa_s, kappa_f, kappa_x, N, **kwargs):
     """
     Parameters:
     :param time: time in source frame in seconds
@@ -31,7 +31,7 @@ def _wr_bh_merger(time, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta,
     """
     # Calculate constants
     M_acc = M_acc = 0.05 * (M_bh/10.0)**0.6 * (M_star/10.0)**0.65
-    M_slow = M_star - M_fast - M_acc 
+    M_slow = M_star - M_fast - M_acc
 
     t_visc = 0.55 * day_to_s * (alpha / 0.1)**-1 * (M_star / 10.0)**0.87 * (M_bh / 10.0)**-0.5 * (theta / 0.33)**-2.0
     L_acc0 = 1.6e44 * (M_bh / 10.0)**0.03 * (M_star / 10.0)**1.63 * (eta / 1e-2) * (alpha / 0.1)**-1.1 * (theta / 0.33)**-2.3
@@ -72,10 +72,9 @@ def _wr_bh_merger(time, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta,
             e_slow += de_slow_dt * dt
             if e_slow < 0:
                 e_slow = 0
-            e_fast += de_fast_dt * dt    
+            e_fast += de_fast_dt * dt
             if e_fast < 0:
                 e_fast = 0
-            
 
         lum_opt_sh = e_slow / (t_lc_slow[i] + t_diff_slow[i])
         lum_opt_rep = e_fast / (t_lc_fast[i] + t_diff_fast[i])
@@ -84,8 +83,8 @@ def _wr_bh_merger(time, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta,
         energy_fast.append(e_fast)
         energy_slow.append(e_slow)
 
-    dynamics_output = namedtuple('dynamics_output', ['time', 'energy_fast', 'energy_slow', 'rad_fast', 'rad_slow', 
-                                                     'reprocessed_luminosity', 'shock_powered_luminosity', 'optical_luminosity', 
+    dynamics_output = namedtuple('dynamics_output', ['time', 'energy_fast', 'energy_slow', 'rad_fast', 'rad_slow',
+                                                     'reprocessed_luminosity', 'shock_powered_luminosity', 'optical_luminosity',
                                                      'x_ray_luminosity', 'accretion_luminosity', 'erad_opt_total'])
 
     dynamics_output.time = time
@@ -134,19 +133,19 @@ def wr_bh_merger_bolometric(time, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, a
     time_temp = get_optimal_time_array(1e0, 1e8, 2000)
     dynamics_output = _wr_bh_merger(time_temp, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta, theta, phi_0, kappa_s, kappa_f, kappa_x, N, **kwargs)
     lbol_func = interp1d(time_temp, y=dynamics_output.optical_luminosity)
-    time = time * day_to_s    
+    time = time * day_to_s
     lbol = lbol_func(time)
     if kwargs['output_format'] == 'dynamics_output':
         return dynamics_output
     else:
         return lbol
-    
+
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2022ApJ...932...84M')
 def wr_bh_merger(time, redshift, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta, **kwargs):
     """
     Parameters:
     :param time: time in source frame in days
-    :param redshift: redshift 
+    :param redshift: redshift
     :param M_star: Mass of the Wolf-Rayet star in solar masses
     :param M_bh: Mass of the black hole in solar masses
     :param M_fast: Mass of the fast component in solar masses
@@ -192,7 +191,7 @@ def wr_bh_merger(time, redshift, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, al
         frequency = kwargs['frequency']
         frequency, time = calc_kcorrected_properties(frequency=frequency, redshift=redshift, time=time)
         output = _wr_bh_merger(time_temp, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta, theta, phi_0, kappa_s, kappa_f, kappa_x, N, **kwargs)
-        photo_fast = kwargs['photosphere'](time=time_temp/day_to_s, luminosity=np.array(output.reprocessed_luminosity), vej = v_fast * speed_of_light / km_cgs, **kwargs) 
+        photo_fast = kwargs['photosphere'](time=time_temp/day_to_s, luminosity=np.array(output.reprocessed_luminosity), vej = v_fast * speed_of_light / km_cgs, **kwargs)
         photo_slow = kwargs['photosphere'](time=time_temp/day_to_s, luminosity=np.array(output.shock_powered_luminosity), vej = v_slow, **kwargs)
         temp_func_fast = interp1d(time_temp/day_to_s, y=photo_fast.photosphere_temperature)
         temp_func_slow = interp1d(time_temp/day_to_s, y=photo_slow.photosphere_temperature)
@@ -202,13 +201,13 @@ def wr_bh_merger(time, redshift, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, al
         temp_slow = temp_func_slow(time)
         rad_fast = rad_func_fast(time)
         rad_slow = rad_func_slow(time)
-        sed_fast = kwargs['sed'](temperature=temp_fast, r_photosphere=rad_fast, 
-                                            frequency=frequency, luminosity_distance=dl) 
-        sed_slow = kwargs['sed'](temperature=temp_slow, r_photosphere=rad_slow, 
+        sed_fast = kwargs['sed'](temperature=temp_fast, r_photosphere=rad_fast,
+                                            frequency=frequency, luminosity_distance=dl)
+        sed_slow = kwargs['sed'](temperature=temp_slow, r_photosphere=rad_slow,
                                             frequency=frequency, luminosity_distance=dl)
         flux_density = sed_fast.flux_density + sed_slow.flux_density
         return flux_density.to(uu.mJy).value * (1 + redshift)
-    
+
     else:
         time_obs = time
         lambda_observer_frame = kwargs.get('lambda_array', np.geomspace(500, 60000, 200))
@@ -217,18 +216,18 @@ def wr_bh_merger(time, redshift, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, al
         frequency, time = calc_kcorrected_properties(frequency=lambda_to_nu(lambda_observer_frame),
                                               redshift=redshift, time=time_observer_frame)
         output = _wr_bh_merger(time_temp, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, alpha, eta, theta, phi_0, kappa_s, kappa_f, kappa_x, N, **kwargs)
-        photo_fast = kwargs['photosphere'](time=time_temp/day_to_s, luminosity=np.array(output.reprocessed_luminosity), vej = v_fast * speed_of_light / km_cgs, **kwargs) 
+        photo_fast = kwargs['photosphere'](time=time_temp/day_to_s, luminosity=np.array(output.reprocessed_luminosity), vej = v_fast * speed_of_light / km_cgs, **kwargs)
         photo_slow = kwargs['photosphere'](time=time_temp/day_to_s, luminosity=np.array(output.shock_powered_luminosity), vej = v_slow, **kwargs)
-        if kwargs['output_format'] == 'dynamics_output':                                               
+        if kwargs['output_format'] == 'dynamics_output':
             dynamics_output = namedtuple('dynamics_output', ['time', 'temperature_fast', 'temperature_slow','r_photosphere_fast',
                                                      'r_photosphere_slow','energy_fast','energy_slow','optical_luminosity',
                                                      'reprocessed_luminosity','shock_powered_luminosity','x_ray_luminosity',
                                                      'accretion_luminosity','erad_opt_total'])
-            dynamics_output.time = output.time                                                                    
+            dynamics_output.time = output.time
             dynamics_output.temperature_fast = photo_fast.photosphere_temperature
             dynamics_output.temperature_slow = photo_slow.photosphere_temperature
-            dynamics_output.r_photosphere_fast = photo_fast.r_photosphere 
-            dynamics_output.r_photosphere_slow = photo_slow.r_photosphere 
+            dynamics_output.r_photosphere_fast = photo_fast.r_photosphere
+            dynamics_output.r_photosphere_slow = photo_slow.r_photosphere
             dynamics_output.energy_fast = output.energy_fast
             dynamics_output.energy_slow = output.energy_slow
             dynamics_output.optical_luminosity = output.optical_luminosity
@@ -236,8 +235,8 @@ def wr_bh_merger(time, redshift, M_star, M_bh, M_fast, M_pre, v_fast, v_slow, al
             dynamics_output.shock_powered_luminosity = output.shock_powered_luminosity
             dynamics_output.x_ray_luminosity = output.x_ray_luminosity
             dynamics_output.accretion_luminosity = output.accretion_luminosity
-            dynamics_output.erad_opt_total = output.erad_opt_total            
-            return dynamics_output                
+            dynamics_output.erad_opt_total = output.erad_opt_total
+            return dynamics_output
         sed_fast = kwargs['sed'](temperature=photo_fast.photosphere_temperature, r_photosphere=photo_fast.r_photosphere,
                     frequency=frequency[:,None], luminosity_distance=dl)
         sed_slow = kwargs['sed'](temperature=photo_slow.photosphere_temperature, r_photosphere=photo_slow.r_photosphere,

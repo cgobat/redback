@@ -561,7 +561,7 @@ class GaussianLikelihoodValidationTest(unittest.TestCase):
         likelihood = likelihoods.GaussianLikelihood(
             x=self.x, y=self.y, sigma=1.0, function=self.function,
             kwargs=self.kwargs)
-        
+
         # Set parameters
         likelihood.parameters = {'param_1': 2.0}
         model_output = likelihood.model_output

@@ -762,7 +762,7 @@ class IntegratedFluxPlotter(Plotter):
         :return: The axes with the plot.
         :rtype: matplotlib.axes.Axes
         """
-        
+
         axes = axes or plt.gca()
 
         axes = self.plot_data(axes=axes, save=False, show=False)
@@ -1379,7 +1379,7 @@ class MagnitudePlotter(Plotter):
             new_model_kwargs['frequency'] = freq
             new_model_kwargs['bands'] = redback.utils.sncosmo_bandname_from_band([band])
             new_model_kwargs['bands'] = [new_model_kwargs['bands'][0] for _ in range(len(times))]
-            
+
             if self.set_same_color_per_subplot is True:
                 color = self._colors[list(self._filters).index(band)]
                 if self.band_colors is not None:

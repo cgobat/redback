@@ -204,7 +204,7 @@ class Afterglow(Transient):
         self.data_mode = data_mode
         snr = getattr(self, 'snr', None)
         load_result = self.load_data(name=self.name, data_mode=self.data_mode, snr=snr)
-        
+
         if len(load_result) == 5:
             self.x, self.x_err, self.y, self.y_err, frequency = load_result
             self.frequency = frequency
@@ -212,14 +212,14 @@ class Afterglow(Transient):
             self.bands = frequency
         else:
             self.x, self.x_err, self.y, self.y_err = load_result
-            
+
         if truncate:
             self.truncate(truncate_method=truncate_method)
-        
+
         # Update active_bands now that bands are properly set
         if hasattr(self, '_active_bands') and self._active_bands == [None]:
             self.active_bands = 'all'
-        
+
         # Flatten asymmetric errors to 1D for flux_density mode (uses MagnitudePlotter)
         # Keep 2D errors for flux mode (uses IntegratedFluxPlotter which expects 2D)
         if data_mode == 'flux_density':
@@ -244,19 +244,19 @@ class Afterglow(Transient):
         """
         import os
         import glob
-        
+
         # If no SNR specified, try to find any existing processed file
         if snr is None:
             grb = Afterglow._normalise_grb_name(name)
             directory_path = f'GRBData/afterglow/{data_mode}/'
-            
+
             # Look for any processed file matching the pattern
             pattern = f"{directory_path}{grb}*.csv"
             matching_files = glob.glob(pattern)
-            
+
             # Filter out raw files
             processed_files = [f for f in matching_files if 'rawSwiftData' not in f]
-            
+
             if processed_files:
                 # Use the first matching file
                 processed_file_path = processed_files[0]
@@ -274,12 +274,12 @@ class Afterglow(Transient):
         x_err = np.abs(data[:, 1:3]).T
         y = np.array(data[:, 3])
         y_err = np.abs(data[:, 4:6]).T
-        
+
         # For flux_density mode, also load frequency
         if data_mode == 'flux_density' and data.shape[1] > 6:
             frequency = data[:, 6]
             return x, x_err, y, y_err, frequency
-        
+
         return x, x_err, y, y_err
 
     def truncate(self, truncate_method: str = 'prompt_time_error') -> None:
@@ -292,21 +292,21 @@ class Afterglow(Transient):
         truncator = self.Truncator(x=self.x, x_err=self.x_err, y=self.y, y_err=self.y_err, time=self.time,
                                    time_err=self.time_err, truncate_method=truncate_method)
         truncated_data = truncator.truncate()
-        
+
         # Get the indices that were kept after truncation
         # (by comparing the truncated x array with the original x array)
         if len(truncated_data[0]) < len(self.x):
             # Find which indices were kept
             kept_indices = np.isin(self.x, truncated_data[0])
-            
+
             # Truncate frequency if it exists and has the same length as original x
             if hasattr(self, 'frequency') and self.frequency is not None and len(self.frequency) == len(self.x):
                 self.frequency = self.frequency[kept_indices]
-            
+
             # Truncate bands if it exists and has the same length as original x
             if hasattr(self, 'bands') and self.bands is not None and len(self.bands) == len(self.x):
                 self.bands = self.bands[kept_indices]
-        
+
         self.x, self.x_err, self.y, self.y_err = truncated_data
 
     @property

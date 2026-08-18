@@ -736,7 +736,7 @@ def gaussian_rise(time, a_1, peak_time, sigma_t, **kwargs):
     :param a_1: gaussian rise amplitude scale
     :param peak_time: peak time in whatever units
     :param sigma_t: the sharpness of the Gaussian
-    :return: In whatever units set by a_1 
+    :return: In whatever units set by a_1
     """
     total = a_1 * np.exp(-(time - peak_time)**2. / (2 * sigma_t ** 2))
     return total

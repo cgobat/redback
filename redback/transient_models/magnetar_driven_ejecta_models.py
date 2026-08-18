@@ -56,11 +56,11 @@ def _ejecta_dynamics_and_interaction(time, mej, beta, ejecta_radius, kappa, n_is
 
     t0_comoving = 1.3
     tsigma_comoving = 0.11
-    
+
     ni56_lum = 6.45e43
     co56_lum = 1.45e43
     ni56_life = 8.8*86400  # days
-    co56_life = 111.3*86400  # days    
+    co56_life = 111.3*86400  # days
 
     for i in range(len(time)):
         beta = np.sqrt(1 - 1 / gamma ** 2)

@@ -2179,19 +2179,19 @@ def tophat_from_emulator(time, redshift, thv, loge0, thc, logn0, p, logepse, log
     """
 
     from redback_surrogates.afterglowmodels import tophat_emulator
-    
+
     z1=0.01
     z2= redshift
-    frequency= np.log10(kwargs['frequency'])    
+    frequency= np.log10(kwargs['frequency'])
     flux_density = tophat_emulator(new_time=time/(1+z2), thv=thv, loge0=loge0, thc=thc, logn0=logn0, p=p,
                                             logepse=logepse, logepsb=logepsb, g0=g0,frequency=frequency)
-        
+
     #scaling flux density with redshift
     dl1 = cosmo.luminosity_distance(z1)
     dl2 = cosmo.luminosity_distance(z2)
     scale_factor = ((dl1**2)*(1+z1)) / (dl2**2)
     flux_density=flux_density*scale_factor
-    
+
     if kwargs['output_format'] == 'flux_density':
         return flux_density
     elif kwargs['output_format'] == 'magnitude':
@@ -2350,9 +2350,9 @@ def jetsimpy_tophat(time, redshift, thv, loge0, thc, nism, A, p, logepse, logeps
     if kwargs['output_format'] == 'flux_density':
         frequency = kwargs['frequency']
         flux_density = jetsimpy.FluxDensity_tophat(time, frequency, P)
-        return flux_density   
+        return flux_density
     else:
-        frequency = bands_to_frequency(kwargs['bands'])       
+        frequency = bands_to_frequency(kwargs['bands'])
         flux_density = jetsimpy.FluxDensity_tophat(time, frequency, P)
         return calc_ABmag_from_flux_density(flux_density).value
 
@@ -2389,9 +2389,9 @@ def jetsimpy_gaussian(time, redshift, thv, loge0, thc, nism, A, p, logepse, loge
     if kwargs['output_format'] == 'flux_density':
         frequency = kwargs['frequency']
         flux_density = jetsimpy.FluxDensity_gaussian(time, frequency, P)
-        return flux_density   
+        return flux_density
     else:
-        frequency = bands_to_frequency(kwargs['bands'])       
+        frequency = bands_to_frequency(kwargs['bands'])
         flux_density = jetsimpy.FluxDensity_gaussian(time, frequency, P)
         return calc_ABmag_from_flux_density(flux_density).value
 
@@ -2430,8 +2430,8 @@ def jetsimpy_powerlaw(time, redshift, thv, loge0, thc, nism, A, p, logepse, loge
     if kwargs['output_format'] == 'flux_density':
         frequency = kwargs['frequency']
         flux_density = jetsimpy.FluxDensity_powerlaw(time, frequency, P)
-        return flux_density   
+        return flux_density
     else:
-        frequency = bands_to_frequency(kwargs['bands'])       
+        frequency = bands_to_frequency(kwargs['bands'])
         flux_density = jetsimpy.FluxDensity_powerlaw(time, frequency, P)
         return calc_ABmag_from_flux_density(flux_density).value

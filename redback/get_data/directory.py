@@ -52,7 +52,7 @@ def afterglow_directory_structure(grb: str, data_mode: str, instrument: str = 'B
     check_directory_exists_and_if_not_mkdir(directory_path)
 
     path = f'{directory_path}{grb}'
-    
+
     # Raw file should NOT include SNR - it contains all data
     # Processed file SHOULD include SNR - it's filtered data
     snr_suffix = f'_{snr}' if snr else ''

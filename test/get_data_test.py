@@ -734,7 +734,7 @@ class TestSwiftDataGetter(unittest.TestCase):
         mock_udg.getBurstAnalyser.return_value = {}
 
         result = self.getter.download_burst_analyser_data_via_api()
-        
+
         # Empty dict should be returned (error will be raised later in conversion)
         self.assertIsInstance(result, dict)
         self.assertEqual(len(result), 0)
@@ -1352,7 +1352,7 @@ NO NO NO
 
         self.getter.instrument = "BAT+XRT"
         self.getter.data_mode = "flux"
-        
+
         # Mock XRT lightcurve data
         mock_xrt_df = pd.DataFrame({
             'Time': [1000.0, 2000.0],
@@ -1365,7 +1365,7 @@ NO NO NO
         mock_udg.getLightCurves.return_value = {
             'PC_nosys_incbad': mock_xrt_df
         }
-        
+
         # Mock Burst Analyser data
         mock_ba_data = {
             'XRT': {
@@ -1526,7 +1526,7 @@ NO NO NO
 
         self.getter.instrument = "XRT"
         self.getter.transient_type = "afterglow"
-        
+
         with self.assertRaises(ImportError) as context:
             self.getter.collect_data()
         self.assertIn("swifttools is required", str(context.exception))
@@ -2115,7 +2115,7 @@ class TestOtterDataGetter(unittest.TestCase):
     def test_init(self):
         """Test initialization"""
         getter = redback.get_data.otter.OtterDataGetter(
-            transient=self.transient, 
+            transient=self.transient,
             transient_type=self.transient_type
         )
         self.assertEqual(self.transient, getter.transient)
@@ -2125,7 +2125,7 @@ class TestOtterDataGetter(unittest.TestCase):
         """Test invalid transient type raises ValueError"""
         with mock.patch('redback.get_data.otter.OTTER_INSTALLED', True):
             getter = redback.get_data.otter.OtterDataGetter(
-                transient=self.transient, 
+                transient=self.transient,
                 transient_type=self.transient_type
             )
             with self.assertRaises(ValueError):
@@ -2136,7 +2136,7 @@ class TestOtterDataGetter(unittest.TestCase):
         """Test VALID_TRANSIENT_TYPES constant"""
         expected_types = ['kilonova', 'supernova', 'tidal_disruption_event']
         getter = redback.get_data.otter.OtterDataGetter(
-            transient=self.transient, 
+            transient=self.transient,
             transient_type=self.transient_type
         )
         self.assertListEqual(expected_types, getter.VALID_TRANSIENT_TYPES)
@@ -2145,7 +2145,7 @@ class TestOtterDataGetter(unittest.TestCase):
     def test_metadata_path(self):
         """Test metadata path property"""
         getter = redback.get_data.otter.OtterDataGetter(
-            transient=self.transient, 
+            transient=self.transient,
             transient_type=self.transient_type
         )
         expected = f"{getter.directory_path}{self.transient}_metadata.csv"
@@ -2155,7 +2155,7 @@ class TestOtterDataGetter(unittest.TestCase):
     def test_directory_structure(self):
         """Test directory structure follows open_access pattern with obs_type subdirectory"""
         getter = redback.get_data.otter.OtterDataGetter(
-            transient=self.transient, 
+            transient=self.transient,
             transient_type=self.transient_type,
             obs_type='uvoir'
         )
@@ -2168,7 +2168,7 @@ class TestOtterDataGetter(unittest.TestCase):
     def test_collect_data_file_exists(self, isfile):
         """Test collect_data when file already exists"""
         getter = redback.get_data.otter.OtterDataGetter(
-            transient=self.transient, 
+            transient=self.transient,
             transient_type=self.transient_type
         )
         isfile.return_value = True
@@ -2179,18 +2179,18 @@ class TestOtterDataGetter(unittest.TestCase):
         """Test successful data collection from OTTER"""
         if not redback.get_data.otter.OTTER_INSTALLED:
             self.skipTest("OTTER not installed")
-        
+
         with mock.patch("otter.Otter") as MockOtter, \
              mock.patch("os.path.isfile") as isfile, \
              mock.patch("pandas.DataFrame.to_csv") as mock_to_csv, \
              mock.patch("os.makedirs"):
-            
+
             getter = redback.get_data.otter.OtterDataGetter(
-                transient=self.transient, 
+                transient=self.transient,
                 transient_type=self.transient_type
             )
             isfile.return_value = False
-            
+
             # Mock OTTER instance and meta
             mock_otter = MockOtter.return_value
             mock_transient = MagicMock()
@@ -2200,9 +2200,9 @@ class TestOtterDataGetter(unittest.TestCase):
             mock_transient.coordinate.dec.value = -23.38
             mock_transient.discovery_date.mjd = 57982.5
             mock_transient.classification = "kilonova"
-            
+
             mock_otter.get_meta.return_value = {self.transient: mock_transient}
-            
+
             # Mock photometry DataFrame
             mock_phot = pd.DataFrame({
                 'date': [57982.0, 57983.0],
@@ -2212,9 +2212,9 @@ class TestOtterDataGetter(unittest.TestCase):
                 'upperlimit': [False, False]
             })
             mock_otter.query.return_value = mock_phot
-            
+
             getter.collect_data()
-            
+
             # Verify data was saved
             self.assertGreaterEqual(mock_to_csv.call_count, 1)
 
@@ -2222,23 +2222,23 @@ class TestOtterDataGetter(unittest.TestCase):
         """Test collect_data raises error when transient not found"""
         if not redback.get_data.otter.OTTER_INSTALLED:
             self.skipTest("OTTER not installed")
-        
+
         with mock.patch("otter.Otter") as MockOtter, \
              mock.patch("os.path.isfile") as isfile:
-            
+
             getter = redback.get_data.otter.OtterDataGetter(
-                transient=self.transient, 
+                transient=self.transient,
                 transient_type=self.transient_type
             )
             isfile.return_value = False
-            
+
             # Mock Otter returning empty dict (transient not found)
             mock_otter = MockOtter.return_value
             mock_otter.get_meta.return_value = {}
-            
+
             with self.assertRaises(ValueError) as context:
                 getter.collect_data()
-            
+
             self.assertIn("not found in OTTER database", str(context.exception))
 
 
@@ -2263,11 +2263,11 @@ class TestOtterWrapperFunctions(unittest.TestCase):
         mock_data = pd.DataFrame({'time (days)': [1, 2], 'magnitude': [20, 21]})
         mock_getter.get_data.return_value = mock_data
         OtterDataGetter.return_value = mock_getter
-        
+
         result = redback.get_data.get_kilonova_data_from_otter('19dsg')
-        
+
         OtterDataGetter.assert_called_once_with(
-            transient='19dsg', 
+            transient='19dsg',
             transient_type='kilonova',
             obs_type='uvoir'
         )
@@ -2281,11 +2281,11 @@ class TestOtterWrapperFunctions(unittest.TestCase):
         mock_data = pd.DataFrame({'time (days)': [1, 2], 'magnitude': [18, 19]})
         mock_getter.get_data.return_value = mock_data
         OtterDataGetter.return_value = mock_getter
-        
+
         result = redback.get_data.get_supernova_data_from_otter('19dsg')
-        
+
         OtterDataGetter.assert_called_once_with(
-            transient='19dsg', 
+            transient='19dsg',
             transient_type='supernova',
             obs_type='uvoir'
         )
@@ -2299,11 +2299,11 @@ class TestOtterWrapperFunctions(unittest.TestCase):
         mock_data = pd.DataFrame({'time (days)': [1, 2], 'magnitude': [17, 18]})
         mock_getter.get_data.return_value = mock_data
         OtterDataGetter.return_value = mock_getter
-        
+
         result = redback.get_data.get_tidal_disruption_event_data_from_otter('ASASSN-14li')
-        
+
         OtterDataGetter.assert_called_once_with(
-            transient='ASASSN-14li', 
+            transient='ASASSN-14li',
             transient_type='tidal_disruption_event',
             obs_type='uvoir'
         )

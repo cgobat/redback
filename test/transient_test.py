@@ -1506,7 +1506,7 @@ class TestTransientProperties(unittest.TestCase):
         self.flux = np.array([1e-12, 2e-12, 1.5e-12, 1e-12, 0.5e-12])
         self.flux_err = np.array([1e-13, 2e-13, 1.5e-13, 1e-13, 0.5e-13])
         self.bands = np.array(['r', 'g', 'i', 'r', 'g'])
-        
+
     def test_filtered_frequencies(self):
         """Test filtered_frequencies property"""
         transient = redback.transient.Transient(
@@ -1543,7 +1543,7 @@ class TestTransientProperties(unittest.TestCase):
         transient = redback.transient.Transient(
             time=self.time, flux=self.flux, flux_err=self.flux_err,
             bands=self.bands, data_mode='flux', name='TestTransient')
-        
+
         unique_freq = transient.unique_frequencies
         # Should have some unique frequencies
         self.assertIsNotNone(unique_freq)
@@ -1571,11 +1571,11 @@ class TestTransientInitializationEdgeCases(unittest.TestCase):
         time_rest = np.array([1.0, 2.0, 3.0])
         flux = np.array([1e-12, 2e-12, 1.5e-12])
         flux_err = np.array([1e-13, 2e-13, 1.5e-13])
-        
+
         transient = redback.transient.Transient(
             time_rest_frame=time_rest, flux=flux, flux_err=flux_err,
             data_mode='flux', name='TestTransient', redshift=0.1)
-        
+
         # Should have observer frame time
         self.assertTrue(hasattr(transient, 'time'))
 
@@ -1595,7 +1595,7 @@ class TestOpticalTransientProperties(unittest.TestCase):
             time=self.time, magnitude=self.magnitude,
             magnitude_err=self.magnitude_err, bands=self.bands,
             data_mode='magnitude', name='TestOptical', redshift=0.1)
-        
+
         # Should have event_table property
         self.assertTrue(hasattr(optical, 'event_table'))
 
@@ -1654,7 +1654,7 @@ class TestSpectrumProperties(unittest.TestCase):
         """Test ylabel property formatting"""
         spectrum = redback.transient.Spectrum(
             self.angstroms, self.flux_density, self.flux_density_err)
-        
+
         # Should have ylabel
         self.assertTrue(hasattr(spectrum, 'ylabel'))
         self.assertIsNotNone(spectrum.ylabel)
@@ -1671,7 +1671,7 @@ class TestOpticalTransientEstimationMethods(unittest.TestCase):
         mags = []
         mag_errs = []
         bands_list = []
-        
+
         # Add data for multiple epochs and bands
         for t in [1.0, 2.0, 3.0]:
             for band in ['g', 'r']:
@@ -1679,7 +1679,7 @@ class TestOpticalTransientEstimationMethods(unittest.TestCase):
                 mags.append(19.0)
                 mag_errs.append(0.1)
                 bands_list.append(band)
-        
+
         self.optical = redback.transient.OpticalTransient(
             time=np.array(times),
             magnitude=np.array(mags),
@@ -1706,7 +1706,7 @@ class TestTransientDataModeValidation(unittest.TestCase):
         time = np.array([1.0, 2.0, 3.0])
         flux = np.array([1e-12, 2e-12, 1.5e-12])
         flux_err = np.array([1e-13, 2e-13, 1.5e-13])
-        
+
         # These should all work
         for mode in ['flux', 'luminosity', 'flux_density']:
             transient = redback.transient.Transient(

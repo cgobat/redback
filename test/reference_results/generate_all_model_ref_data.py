@@ -29,11 +29,11 @@ REFERENCE_FILE = 'test/reference_results/all_models_reference.pkl.gz'
 def get_model_functions(module):
     """Get all model functions from a module."""
     # Skip these - they're utilities not models
-    skip_names = ['calc_kcorrected_properties', 'afterglow_models_sed', 
+    skip_names = ['calc_kcorrected_properties', 'afterglow_models_sed',
                   'afterglow_models_with_energy_injection', 'afterglow_models_with_jet_spread',
                   'csm_shock_breakout_bolometric', 'integrated_flux_afterglow',
                   'get_correct_output_format_from_spectra']
-    
+
     functions = []
     for name in dir(module):
         if name.startswith('_') or name in skip_names:
@@ -53,14 +53,14 @@ def get_model_functions(module):
 def sample_from_prior(prior, n_samples=3):
     """Sample n parameter sets from prior, spread across the range."""
     param_sets = []
-    
+
     for i in range(n_samples):
         params = {}
         fraction = i / max(1, n_samples - 1)  # 0.0, 0.5, 1.0 for n=3
-        
+
         for key in prior.keys():
             param_prior = prior[key]
-            
+
             # Get value at this fraction of the range
             if hasattr(param_prior, 'minimum') and hasattr(param_prior, 'maximum'):
                 low = param_prior.minimum
@@ -77,15 +77,15 @@ def sample_from_prior(prior, n_samples=3):
                     params[key] = sample[key].values[0]
                 except:
                     params[key] = 1.0 + fraction  # Fallback
-        
+
         param_sets.append(params)
-    
+
     return param_sets
 
 
 def generate_ref_data_for_model(category, model_name, model_func, time_array):
     """Generate reference data for a single model.
-    
+
     Returns:
         (success, error, ref_data_dict) where ref_data_dict contains:
             - params: list of 3 parameter dicts
@@ -95,15 +95,15 @@ def generate_ref_data_for_model(category, model_name, model_func, time_array):
     try:
         # Get prior
         prior = redback.priors.get_priors(model=model_name)
-        
+
         # Sample 3 parameter sets from prior (low, middle, high)
         param_sets = sample_from_prior(prior, n_samples=3)
-        
+
         # Remove redshift from params (we'll set it in kwargs)
         for params in param_sets:
             if 'redshift' in params:
                 del params['redshift']
-        
+
         # Set up evaluation kwargs
         eval_kwargs = {
             'time': time_array,
@@ -111,15 +111,15 @@ def generate_ref_data_for_model(category, model_name, model_func, time_array):
             'output_format': 'flux' if model_name == 'trapped_magnetar' else 'flux_density',
             'frequency': 1e14,
         }
-        
+
         # Add photon_index for trapped_magnetar flux output
         if model_name == 'trapped_magnetar':
             eval_kwargs['photon_index'] = 2.0
-        
+
         # Evaluate model for each parameter set
         params_list = []
         results_list = []
-        
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for params in param_sets:
@@ -127,7 +127,7 @@ def generate_ref_data_for_model(category, model_name, model_func, time_array):
                 result = model_func(**current_kwargs)
                 params_list.append(params)
                 results_list.append(result)
-        
+
         from redback.model_metadata import BUILTIN_MODEL_METADATA
         meta = BUILTIN_MODEL_METADATA.get(model_name)
         optional_deps = list(meta.optional_dependencies) if meta else []
@@ -141,9 +141,9 @@ def generate_ref_data_for_model(category, model_name, model_func, time_array):
                 'optional_dependencies': optional_deps,
             }
         }
-        
+
         return True, None, ref_data
-        
+
     except Exception as e:
         return False, str(e), None
 
@@ -151,36 +151,36 @@ def generate_ref_data_for_model(category, model_name, model_func, time_array):
 def generate_ref_data_for_category(category, module, time_array, quick_mode=False):
     """Generate reference data for all models in a category."""
     functions = get_model_functions(module)
-    
+
     # Models to skip (require extra packages not in requirements)
     skip_models = {
         'vegas_powerlaw', 'vegas_gaussian', 'vegas_tophat',
         'jetsimpy_powerlaw', 'jetsimpy_gaussian', 'jetsimpy_tophat',
     }
-    
+
     # Filter out models that should be skipped
     functions = [(name, func) for name, func in functions if name not in skip_models]
-    
+
     if quick_mode:
         functions = functions[:3]  # Just test first 3
-    
+
     print(f"\n{'='*70}")
     print(f"Processing {category.upper()} models ({len(functions)} models)")
     print(f"{'='*70}")
-    
+
     successful = {}
     failed = []
-    
+
     for model_name, model_func in functions:
         success, error, ref_data = generate_ref_data_for_model(category, model_name, model_func, time_array)
-        
+
         if success:
             successful[f"{category}.{model_name}"] = ref_data
             print(f"  ✓ {model_name}")
         else:
             failed.append((model_name, error))
             print(f"  ✗ {model_name}: {error[:60] if error else 'Unknown error'}")
-    
+
     return successful, failed
 
 
@@ -188,7 +188,7 @@ def main():
     parser = argparse.ArgumentParser(description='Generate model reference data')
     parser.add_argument('--quick', action='store_true', help='Quick mode: test only 3 models per category')
     args = parser.parse_args()
-    
+
     print("="*70)
     print("GENERATING COMPREHENSIVE MODEL REFERENCE DATA")
     print("="*70)
@@ -197,10 +197,10 @@ def main():
     else:
         print("FULL MODE: Testing ALL models")
     print()
-    
+
     all_reference_data = {}
     all_failed = []
-    
+
     # Process each category
     categories = [
         ('kilonova', redback.transient_models.kilonova_models, TIME_SHORT),
@@ -210,22 +210,22 @@ def main():
         ('afterglow', redback.transient_models.afterglow_models, TIME_SHORT),
         ('shock_powered', redback.transient_models.shock_powered_models, TIME_LONG),
     ]
-    
+
     for category, module, time_array in categories:
         successful, failed = generate_ref_data_for_category(category, module, time_array, args.quick)
         all_reference_data.update(successful)
         all_failed.extend([(category, m, e) for m, e in failed])
-    
+
     # Save all reference data to a single compressed file
     print()
     print("="*70)
     print("Saving reference data...")
     with gzip.open(REFERENCE_FILE, 'wb') as f:
         pickle.dump(all_reference_data, f, protocol=pickle.HIGHEST_PROTOCOL)
-    
+
     # Get file size
     file_size_kb = os.path.getsize(REFERENCE_FILE) / 1024
-    
+
     # Summary
     print()
     print("="*70)
@@ -234,18 +234,18 @@ def main():
     print(f"✓ Successful: {len(all_reference_data)} models")
     print(f"✗ Failed:     {len(all_failed)} models")
     print(f"📦 File size:  {file_size_kb:.1f} KB")
-    
+
     if all_reference_data:
         success_rate = 100*len(all_reference_data)/(len(all_reference_data)+len(all_failed))
         print(f"📊 Success rate: {success_rate:.1f}%")
-    
+
     if all_failed and len(all_failed) <= 20:
         print("\nFailed models:")
         for category, model, error in all_failed:
             print(f"  • {category}.{model}: {error[:60] if error else ''}")
     elif all_failed:
         print(f"\n{len(all_failed)} models failed (run with --quick to see details)")
-    
+
     print()
     print("="*70)
     print(f"✓ Saved reference data to {REFERENCE_FILE}")

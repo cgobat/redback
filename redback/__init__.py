@@ -31,7 +31,7 @@ def _get_version():
         return version('redback')
     except Exception:
         pass
-    
+
     # Try pkg_resources (alternative for installed packages)
     try:
         import pkg_resources

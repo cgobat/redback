@@ -15,7 +15,7 @@ redback.transient_models.afterglow_models as before.
 # Import everything from base_models (original afterglow_models.py)
 try:
     from redback.transient_models.afterglow_models.base_models import *
-    
+
     # Explicitly import private functions that are used by other modules
     from redback.transient_models.afterglow_models.base_models import (
         _get_kn_dynamics,
@@ -44,59 +44,59 @@ except ImportError as e:
     # If VegasAfterglow is not installed, create placeholder functions for documentation
     import warnings
     warnings.warn(f"Could not import VegasAfterglow models: {e}")
-    
+
     # Define placeholder functions with proper signatures so docs can build
     def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, **kwargs):
         """
         VegasAfterglow tophat jet with unified medium (ISM/Wind/Hybrid)
-        
+
         Note: This is a placeholder. VegasAfterglow must be installed to use this model.
         Install with: pip install VegasAfterglow
         """
         raise ImportError("VegasAfterglow is not installed. Install with: pip install VegasAfterglow")
-    
+
     def vegas_gaussian(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, **kwargs):
         """
         VegasAfterglow Gaussian jet with unified medium (ISM/Wind/Hybrid)
-        
+
         Note: This is a placeholder. VegasAfterglow must be installed to use this model.
         Install with: pip install VegasAfterglow
         """
         raise ImportError("VegasAfterglow is not installed. Install with: pip install VegasAfterglow")
-    
+
     def vegas_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, ke, kg, **kwargs):
         """
         VegasAfterglow power-law jet with unified medium (ISM/Wind/Hybrid)
-        
+
         Note: This is a placeholder. VegasAfterglow must be installed to use this model.
         Install with: pip install VegasAfterglow
         """
         raise ImportError("VegasAfterglow is not installed. Install with: pip install VegasAfterglow")
-    
+
     def vegas_powerlaw_wing(time, redshift, thv, loge0_w, thc, lognism, loga, p, logepse, logepsb, g0_w, ke, kg, **kwargs):
         """
         VegasAfterglow power-law wing jet with unified medium (ISM/Wind/Hybrid)
-        
+
         Note: This is a placeholder. VegasAfterglow must be installed to use this model.
         Install with: pip install VegasAfterglow
         """
         raise ImportError("VegasAfterglow is not installed. Install with: pip install VegasAfterglow")
-    
-    def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, 
+
+    def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0,
                             theta_w, loge0_w, g0_w, **kwargs):
         """
         VegasAfterglow two-component jet with unified medium (ISM/Wind/Hybrid)
-        
+
         Note: This is a placeholder. VegasAfterglow must be installed to use this model.
         Install with: pip install VegasAfterglow
         """
         raise ImportError("VegasAfterglow is not installed. Install with: pip install VegasAfterglow")
-    
-    def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, 
+
+    def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0,
                             loge0_w, g0_w, ke, kg, **kwargs):
         """
         VegasAfterglow step power-law jet with unified medium (ISM/Wind/Hybrid)
-        
+
         Note: This is a placeholder. VegasAfterglow must be installed to use this model.
         Install with: pip install VegasAfterglow
         """

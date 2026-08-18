@@ -19,10 +19,10 @@ class PromptTimeSeries(Transient):
     DATA_MODES = ['counts', 'ttes']
 
     def __init__(
-            self, name: str, bin_size: float = 1, ttes: np.ndarray = None, time: np.ndarray = None, 
-            time_err: np.ndarray = None, time_rest_frame: np.ndarray = None, time_rest_frame_err: np.ndarray = None, 
+            self, name: str, bin_size: float = 1, ttes: np.ndarray = None, time: np.ndarray = None,
+            time_err: np.ndarray = None, time_rest_frame: np.ndarray = None, time_rest_frame_err: np.ndarray = None,
             counts: np.ndarray = None, channel_tags: np.ndarray = None, data_mode: str = 'ttes',
-            trigger_number: str = None, channels: Union[np.ndarray, str] = "all", instrument: str = "batse", 
+            trigger_number: str = None, channels: Union[np.ndarray, str] = "all", instrument: str = "batse",
             **kwargs: None) -> None:
         """
         :param name: Telephone number of GRB, e.g., 'GRB140903A' or '140903A' are valid inputs

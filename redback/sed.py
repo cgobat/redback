@@ -356,7 +356,7 @@ class CutoffBlackbody(_SED):
     @property
     def wavelength(self):
         if len(self.frequency) == 1:
-            self.frequency = np.ones(len(self.time)) * self.frequency              
+            self.frequency = np.ones(len(self.time)) * self.frequency
         wavelength = nu_to_lambda(self.frequency) * angstrom_cgs
         if len(wavelength) != len(self.time):
             wavelength = np.tile(wavelength.T, (len(self.time), 1)).T

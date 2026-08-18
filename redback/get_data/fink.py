@@ -70,7 +70,7 @@ class FinkDataGetter(DataGetter):
             return None
 
         logger.info(f"Collecting data: source={self.source}, transient={self.transient}")
-        
+
         if self.source == 'ztf':
             response = requests.post(url=self.url,
                 json={'objectId': self.objectId, 'output-format': 'csv', 'withupperlim': 'True'},

@@ -234,7 +234,7 @@ class SwiftDataGetter(GRBDataGetter):
                 "swifttools is required for Swift afterglow data retrieval. "
                 "Please install it with: pip install swifttools"
             )
-        
+
         # Check if raw data already exists and can be loaded (unless force_download is True)
         if os.path.isfile(self.raw_file_path) and not self.force_download:
             try:
@@ -243,11 +243,11 @@ class SwiftDataGetter(GRBDataGetter):
                 return
             except Exception as e:
                 logger.warning(f'Could not load raw data file: {e}. Re-downloading from API.')
-        
+
         # Download from API if raw data doesn't exist, couldn't be loaded, or force_download is True
         if self.force_download:
             logger.info('Force download requested, re-downloading from API')
-        
+
         # For BAT+XRT mode, get both instruments
         if self.instrument == 'BAT+XRT':
             # For flux_density mode, get XRT from Burst Analyser (has Density datasets in Jy)
@@ -275,7 +275,7 @@ class SwiftDataGetter(GRBDataGetter):
             else:
                 xrt_data = self.download_xrt_data_via_api()
                 self._api_data = {'xrt': xrt_data, 'bat': None}
-        
+
         # Save raw API data for debugging/reprocessing
         self.save_raw_api_data()
 
@@ -305,7 +305,7 @@ class SwiftDataGetter(GRBDataGetter):
 
         try:
             logger.info(f'Downloading XRT data for {self.grb} using swifttools API')
-            
+
             # Get the lightcurve data using swifttools
             lc_data = None
             last_error = None
@@ -336,7 +336,7 @@ class SwiftDataGetter(GRBDataGetter):
                 """Select the best curve for a given mode (PC or WT)."""
                 preferred_keys = [
                     f"{mode}_nosys_incbad",
-                    f"{mode}_incbad", 
+                    f"{mode}_incbad",
                     f"{mode}_nosys",
                     f"{mode}",
                 ]
@@ -352,13 +352,13 @@ class SwiftDataGetter(GRBDataGetter):
 
             # Collect all XRT data (both WT and PC modes)
             all_dfs = []
-            
+
             # Get WT mode data (typically earlier times)
             wt_df = select_best_curve(lc_data, "WT")
             if wt_df is not None:
                 all_dfs.append(wt_df)
                 logger.info(f'Found {len(wt_df)} WT mode data points')
-            
+
             # Get PC mode data (typically later times)
             pc_df = select_best_curve(lc_data, "PC")
             if pc_df is not None:
@@ -371,10 +371,10 @@ class SwiftDataGetter(GRBDataGetter):
 
             # Combine all dataframes
             combined_df = pd.concat(all_dfs, ignore_index=True)
-            
+
             # Sort by time
             combined_df = combined_df.sort_values('Time').reset_index(drop=True)
-            
+
             logger.info(f'Successfully downloaded {len(combined_df)} XRT data points for {self.grb}')
 
             return combined_df
@@ -445,7 +445,7 @@ class SwiftDataGetter(GRBDataGetter):
                 f.write(f'# Instrument: {self.instrument}\n')
                 f.write(f'# Data mode: {self.data_mode}\n')
                 f.write('#\n')
-                
+
                 if isinstance(self._api_data, dict):
                     # New format with separate XRT and BAT data
                     if 'xrt' in self._api_data and self._api_data['xrt'] is not None:
@@ -454,7 +454,7 @@ class SwiftDataGetter(GRBDataGetter):
                         xrt_df = self._api_data['xrt']
                         xrt_df.to_csv(f, index=False)
                         f.write('\n')
-                    
+
                     if 'bat' in self._api_data and self._api_data['bat'] is not None:
                         f.write('# BAT DATA (from getBurstAnalyser XRTBand)\n')
                         f.write('#\n')
@@ -472,7 +472,7 @@ class SwiftDataGetter(GRBDataGetter):
                 else:
                     # Legacy format: single dataframe
                     self._api_data.to_csv(f, index=False)
-                    
+
             logger.info(f'Saved raw API data to {self.raw_file_path}')
         except Exception as e:
             logger.warning(f'Could not save raw API data: {e}')
@@ -484,22 +484,22 @@ class SwiftDataGetter(GRBDataGetter):
         """Loads previously saved raw API data from the raw file path."""
         if not os.path.isfile(self.raw_file_path):
             raise FileNotFoundError(f'Raw data file not found: {self.raw_file_path}')
-        
+
         logger.info(f'Loading raw API data from {self.raw_file_path}')
-        
+
         # Read the file and parse sections
         with open(self.raw_file_path, 'r') as f:
             lines = f.readlines()
-        
+
         # Check if it's just a marker file
         if len(lines) == 1 and lines[0].strip() == '# Data retrieved via swifttools API':
             raise ValueError('Raw file is just a marker, no actual data saved')
-        
+
         # Find section boundaries
         xrt_start = None
         bat_start = None
         bat_snr_sections = []
-        
+
         for i, line in enumerate(lines):
             if '# XRT DATA' in line:
                 xrt_start = i
@@ -509,49 +509,49 @@ class SwiftDataGetter(GRBDataGetter):
                 # Extract SNR level from header like "# BAT_SNR4"
                 snr_level = line.strip().replace('# BAT_', '')
                 bat_snr_sections.append((i, snr_level))
-        
+
         xrt_data = None
         bat_data = None
-        
+
         # Parse XRT section
         if xrt_start is not None:
             # Find where CSV data starts (skip comment lines after section header)
             csv_start = xrt_start + 1
             while csv_start < len(lines) and (lines[csv_start].startswith('#') or lines[csv_start].strip() == ''):
                 csv_start += 1
-            
+
             # Find where CSV data ends (next section or end of file)
             csv_end = bat_start if bat_start is not None else len(lines)
-            
+
             # Extract CSV data
             if csv_start < csv_end:
                 from io import StringIO
                 csv_content = ''.join(lines[csv_start:csv_end])
                 xrt_data = pd.read_csv(StringIO(csv_content))
-        
+
         # Parse BAT sections (all SNR levels)
         if bat_snr_sections:
             from io import StringIO
             bat_data = {'BAT': {}}
-            
+
             for idx, (section_start, snr_level) in enumerate(bat_snr_sections):
                 # Find where CSV data starts
                 csv_start = section_start + 1
                 while csv_start < len(lines) and (lines[csv_start].startswith('#') or lines[csv_start].strip() == ''):
                     csv_start += 1
-                
+
                 # Find where CSV data ends (next SNR section or end of file)
                 if idx + 1 < len(bat_snr_sections):
                     csv_end = bat_snr_sections[idx + 1][0]
                 else:
                     csv_end = len(lines)
-                
+
                 # Extract CSV data for this SNR level
                 if csv_start < csv_end:
                     csv_content = ''.join(lines[csv_start:csv_end])
                     bat_df = pd.read_csv(StringIO(csv_content))
                     bat_data['BAT'][snr_level] = {'XRTBand': bat_df}
-        
+
         # Store in the expected format
         if xrt_data is not None or bat_data is not None:
             self._api_data = {'xrt': xrt_data, 'bat': bat_data}
@@ -766,10 +766,10 @@ class SwiftDataGetter(GRBDataGetter):
                 'FluxPos': 'Pos. flux err [erg cm^{-2} s^{-1}]',
                 'FluxNeg': 'Neg. flux err [erg cm^{-2} s^{-1}]',
             }
-            
+
             xrt_df = xrt_data.rename(columns={k: v for k, v in xrt_mapping.items() if k in xrt_data.columns}).copy()
             required_cols = list(xrt_mapping.values())
-            
+
             if all(col in xrt_df.columns for col in required_cols):
                 xrt_df = xrt_df[required_cols].copy()
                 xrt_df['Instrument'] = 'XRT'
@@ -781,7 +781,7 @@ class SwiftDataGetter(GRBDataGetter):
             # Get the requested SNR level
             snr_keys = [self.snr, 'SNR4', 'SNR5', 'SNR6', 'SNR7']
             bat_df = None
-            
+
             for snr_key in snr_keys:
                 if snr_key in bat_ba_data['BAT']:
                     bat_entry = bat_ba_data['BAT'][snr_key]
@@ -790,12 +790,12 @@ class SwiftDataGetter(GRBDataGetter):
                         bat_df = bat_entry['XRTBand']
                         logger.info(f'Using BAT {snr_key} XRTBand data')
                         break
-            
+
             if bat_df is not None and len(bat_df) > 0:
                 # Filter out bad bins
                 if 'BadBin' in bat_df.columns:
                     bat_df = bat_df[bat_df['BadBin'] == False].copy()
-                
+
                 bat_mapping = {
                     'Time': 'Time [s]',
                     'TimePos': 'Pos. time err [s]',
@@ -804,10 +804,10 @@ class SwiftDataGetter(GRBDataGetter):
                     'FluxPos': 'Pos. flux err [erg cm^{-2} s^{-1}]',
                     'FluxNeg': 'Neg. flux err [erg cm^{-2} s^{-1}]',
                 }
-                
+
                 bat_processed = bat_df.rename(columns={k: v for k, v in bat_mapping.items() if k in bat_df.columns}).copy()
                 required_cols = list(bat_mapping.values())
-                
+
                 if all(col in bat_processed.columns for col in required_cols):
                     # Filter for valid data
                     mask = (
@@ -838,19 +838,19 @@ class SwiftDataGetter(GRBDataGetter):
 
     def _convert_flux_density_mode(self, xrt_data, bat_ba_data) -> pd.DataFrame:
         """Convert flux_density mode data (flux density in mJy).
-        
+
         Uses Density datasets from getBurstAnalyser for both XRT and BAT (already in Jy).
         """
         if bat_ba_data is None:
             raise ValueError(f"No Burst Analyser data available for flux_density mode for {self.grb}")
-        
+
         all_data = []
-        
+
         # Process XRT Density data from getBurstAnalyser
         # Density datasets have flux in Jy (not erg/cm²/s)
         if 'XRT' in bat_ba_data:
             xrt_datasets = bat_ba_data['XRT'].get('Datasets', [])
-            
+
             # Look for Density datasets (WT and PC modes)
             for ds_name in ['Density_WT_incbad', 'Density_PC_incbad', 'Density_WT', 'Density_PC']:
                 if ds_name in xrt_datasets and ds_name in bat_ba_data['XRT']:
@@ -867,13 +867,13 @@ class SwiftDataGetter(GRBDataGetter):
                         xrt_norm['Instrument'] = 'XRT'
                         all_data.append(xrt_norm)
                         logger.info(f'Found {len(xrt_norm)} XRT flux density points from {ds_name}')
-        
+
         # Process BAT Density data from getBurstAnalyser
         if 'BAT' in bat_ba_data:
             # Get the requested SNR level
             snr_keys = [self.snr, 'SNR4', 'SNR5', 'SNR6', 'SNR7']
             bat_df = None
-            
+
             for snr_key in snr_keys:
                 if snr_key in bat_ba_data['BAT']:
                     bat_entry = bat_ba_data['BAT'][snr_key]
@@ -882,17 +882,17 @@ class SwiftDataGetter(GRBDataGetter):
                         bat_df = bat_entry['Density'].copy()
                         logger.info(f'Using BAT {snr_key} Density data for flux density')
                         break
-            
+
             if bat_df is not None and len(bat_df) > 0:
                 # Filter out bad bins
                 if 'BadBin' in bat_df.columns:
                     bat_df = bat_df[bat_df['BadBin'] == False].copy()
-                
+
                 # Density data is already in Jy, convert to mJy
                 bat_df['Flux'] = bat_df['Flux'] * 1000
                 bat_df['FluxPos'] = bat_df['FluxPos'] * 1000
                 bat_df['FluxNeg'] = bat_df['FluxNeg'] * 1000
-                
+
                 # Filter for valid data
                 mask = (
                     np.isfinite(bat_df['Time']) &
@@ -903,14 +903,14 @@ class SwiftDataGetter(GRBDataGetter):
                 bat_df['Instrument'] = 'BAT'
                 all_data.append(bat_df)
                 logger.info(f'Processed {len(bat_df)} BAT flux density points')
-        
+
         if not all_data:
             raise ValueError(f"No flux density data found for {self.grb}")
-        
+
         # Combine datasets
         combined_df = pd.concat(all_data, ignore_index=True)
         combined_df = combined_df.sort_values('Time').reset_index(drop=True)
-        
+
         # Map to expected column names
         column_mapping = {
             'Time': 'Time [s]',
@@ -920,22 +920,22 @@ class SwiftDataGetter(GRBDataGetter):
             'FluxPos': 'Pos. flux err [mJy]',
             'FluxNeg': 'Neg. flux err [mJy]'
         }
-        
+
         final_df = combined_df.rename(columns={k: v for k, v in column_mapping.items() if k in combined_df.columns}).copy()
-        
+
         # Add frequency column (Swift flux density is at 10 keV = 2.418e18 Hz)
         final_df['Frequency [Hz]'] = 2.418e18
-        
+
         # Select only the expected columns
         expected_columns = self.FLUX_DENSITY_KEYS
         missing = [col for col in expected_columns if col not in final_df.columns]
         if missing:
             raise ValueError(f"Missing required flux density columns: {missing}")
-        
+
         final_df = final_df[expected_columns]
         final_df.to_csv(self.processed_file_path, index=False, sep=',')
         logger.info(f'Saved flux density data: {len(final_df)} total points for {self.grb}')
-        
+
         return final_df
 
     def convert_burst_analyser_api_data_to_csv(self) -> pd.DataFrame:
@@ -958,12 +958,12 @@ class SwiftDataGetter(GRBDataGetter):
             """Map Burst Analyser columns to integrated flux columns."""
             if df is None or not isinstance(df, pd.DataFrame) or len(df) == 0:
                 return None
-            
+
             # Handle 'T' as alternative to 'Time'
             df = df.copy()
             if 'T' in df.columns and 'Time' not in df.columns:
                 df['Time'] = df['T']
-            
+
             mapping = {
                 'Time': 'Time [s]',
                 'TimePos': 'Pos. time err [s]',
@@ -973,7 +973,7 @@ class SwiftDataGetter(GRBDataGetter):
                 'FluxNeg': 'Neg. flux err [erg cm^{-2} s^{-1}]',
             }
             renamed = df.rename(columns={k: v for k, v in mapping.items() if k in df.columns}).copy()
-            
+
             required = [
                 'Time [s]',
                 'Pos. time err [s]',
@@ -984,14 +984,14 @@ class SwiftDataGetter(GRBDataGetter):
             ]
             if not all(col in renamed.columns for col in required):
                 return None
-            
+
             cleaned = renamed[required].copy()
-            
+
             # Filter bad bins if provided by BA (BadBin column in the source df)
             if 'BadBin' in source_df.columns:
                 mask = (source_df['BadBin'] == False) | (source_df['BadBin'] == 0)
                 cleaned = cleaned[mask].reset_index(drop=True)
-            
+
             # Require finite, positive flux and finite time
             mask = (
                 np.isfinite(cleaned['Time [s]']) &
@@ -999,7 +999,7 @@ class SwiftDataGetter(GRBDataGetter):
                 (cleaned['Flux [erg cm^{-2} s^{-1}]'] > 0)
             )
             cleaned = cleaned[mask].reset_index(drop=True)
-            
+
             return cleaned if len(cleaned) > 0 else None
 
         # For flux mode, we want integrated flux data
@@ -1019,7 +1019,7 @@ class SwiftDataGetter(GRBDataGetter):
                                 all_data.append(df_norm)
                                 logger.info(f'Found {len(df_norm)} XRT PC mode points')
                             break
-                
+
                 # Then try WT mode
                 for key in ['ObservedFlux_WT_incbad', 'ObservedFlux_WT']:
                     if key in ba_data['XRT']:
@@ -1056,7 +1056,7 @@ class SwiftDataGetter(GRBDataGetter):
 
             # Combine all data
             combined_df = pd.concat(all_data, ignore_index=True)
-            
+
             # Sort by time
             combined_df = combined_df.sort_values('Time [s]').reset_index(drop=True)
 
@@ -1076,7 +1076,7 @@ class SwiftDataGetter(GRBDataGetter):
                 logger.info(f"DEBUG: xrt_lc_data is DataFrame: {isinstance(xrt_lc_data, pd.DataFrame)}, len: {len(xrt_lc_data) if isinstance(xrt_lc_data, pd.DataFrame) else 'N/A'}")
                 if isinstance(xrt_lc_data, pd.DataFrame):
                     logger.info(f"DEBUG: xrt_lc_data columns: {xrt_lc_data.columns.tolist()}")
-            
+
             if xrt_lc_data is not None and isinstance(xrt_lc_data, pd.DataFrame) and len(xrt_lc_data) > 0:
                 # The XRT lightcurve data should have Time, Flux, etc.
                 # Separate by mode if Mode column exists, otherwise treat as single dataset
@@ -1121,12 +1121,12 @@ class SwiftDataGetter(GRBDataGetter):
                             bat_norm['Flux'] = bat_df['Flux']
                             bat_norm['FluxPos'] = bat_df['FluxPos']
                             bat_norm['FluxNeg'] = bat_df['FluxNeg']
-                            
+
                             # Remove bad bins and negative flux values
                             if 'BadBin' in bat_df.columns:
                                 bat_norm = bat_norm[bat_df['BadBin'] == 0]
                             bat_norm = bat_norm[bat_norm['Flux'] > 0]
-                            
+
                             all_data.append(bat_norm)
                             logger.info(f'Using BAT {snr_key} XRTBand data for flux density')
                             logger.info(f'Processed {len(bat_norm)} BAT flux density points')

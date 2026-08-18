@@ -55,7 +55,7 @@ def _check_vegasafterglow_available():
 def _expand_to_match_time(value, time_array):
     """
     Expand a scalar or single-element value to match the time array length.
-    
+
     :param value: scalar, single-element array, or array
     :param time_array: reference time array
     :return: array matching time_array length
@@ -111,7 +111,7 @@ def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, log
         - magnetar_t0: magnetar spin-down time [s] (optional)
         - magnetar_q: magnetar braking index (optional)
     :return: flux density [mJy] or AB magnitude
-    
+
     Examples:
     ---------
     Pure ISM: lognism=0.0, loga=-20
@@ -137,13 +137,13 @@ def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, log
     A_star = 0.0 if loga == -np.inf else 10**loga
     wind_k = kwargs.get('wind_k', 2.0)
     wind_n0 = kwargs.get('wind_n0', float('inf'))
-    
+
     medium = Wind(A_star=A_star, n_ism=n_ism, k_m=wind_k, n0=wind_n0)
 
     # Jet parameters
     spreading = kwargs.get('spreading', False)
     duration = kwargs.get('duration', 1.0)
-    
+
     # Magnetar (optional)
     magnetar = None
     if 'magnetar_L0' in kwargs:
@@ -152,11 +152,11 @@ def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, log
             t0=kwargs['magnetar_t0'],
             q=kwargs['magnetar_q']
         )
-    
+
     jet = TophatJet(
-        theta_c=thc, 
-        E_iso=10**loge0, 
-        Gamma0=g0, 
+        theta_c=thc,
+        E_iso=10**loge0,
+        Gamma0=g0,
         spreading=spreading,
         duration=duration,
         magnetar=magnetar
@@ -171,10 +171,10 @@ def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, log
     ssc = kwargs.get('ssc', False)
     cmb_cooling = kwargs.get('cmb_cooling', False)
     kn = kwargs.get('kn', False)
-    
+
     rad_fwd = Radiation(
-        eps_e=10**logepse, 
-        eps_B=10**logepsb, 
+        eps_e=10**logepse,
+        eps_B=10**logepsb,
         p=p,
         xi_e=xie,
         ssc=ssc,
@@ -203,10 +203,10 @@ def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, log
 
     # Create model
     model = Model(
-        jet=jet, 
-        medium=medium, 
-        observer=obs, 
-        fwd_rad=rad_fwd, 
+        jet=jet,
+        medium=medium,
+        observer=obs,
+        fwd_rad=rad_fwd,
         rvs_rad=rad_rvs,
         resolutions=resolutions,
         rtol=rtol,
@@ -220,11 +220,11 @@ def vegas_tophat(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, log
         if isinstance(bands, str):
             bands = [bands] * len(time)
         frequency = bands_to_frequency(bands)
-    
+
     # Calculate flux density
     flux_density_cgs = model.flux_density(time_s, frequency).total
     fmjy = flux_density_cgs / 1e-26
-    
+
     # Return based on output_format
     if kwargs['output_format'] == 'flux_density':
         return fmjy
@@ -253,7 +253,7 @@ def vegas_gaussian(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
     :param g0: initial Lorentz factor
     :param kwargs: Same optional parameters as vegas_tophat (see vegas_tophat docstring)
     :return: flux density [mJy] or AB magnitude
-    
+
     Examples:
     ---------
     Pure ISM: lognism=0.0, loga=-20
@@ -274,8 +274,8 @@ def vegas_gaussian(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
     n_ism = 0.0 if lognism == -np.inf else 10**lognism
     A_star = 0.0 if loga == -np.inf else 10**loga
     medium = Wind(
-        A_star=A_star, 
-        n_ism=n_ism, 
+        A_star=A_star,
+        n_ism=n_ism,
         k_m=kwargs.get('wind_k', 2.0),
         n0=kwargs.get('wind_n0', float('inf'))
     )
@@ -284,11 +284,11 @@ def vegas_gaussian(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
     magnetar = None
     if 'magnetar_L0' in kwargs:
         magnetar = Magnetar(L0=kwargs['magnetar_L0'], t0=kwargs['magnetar_t0'], q=kwargs['magnetar_q'])
-    
+
     jet = GaussianJet(
-        theta_c=thc, 
-        E_iso=10**loge0, 
-        Gamma0=g0, 
+        theta_c=thc,
+        E_iso=10**loge0,
+        Gamma0=g0,
         spreading=kwargs.get('spreading', False),
         duration=kwargs.get('duration', 1.0),
         magnetar=magnetar
@@ -296,14 +296,14 @@ def vegas_gaussian(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
 
     # Rest same as tophat
     obs = Observer(lumi_dist=dl, z=redshift, theta_obs=thv, phi_obs=kwargs.get('phiv', 0.0))
-    
+
     xie = kwargs.get('xie', 1.0)
     ssc = kwargs.get('ssc', False)
     cmb_cooling = kwargs.get('cmb_cooling', False)
     kn = kwargs.get('kn', False)
-    
+
     rad_fwd = Radiation(eps_e=10**logepse, eps_B=10**logepsb, p=p, xi_e=xie, ssc=ssc, cmb_cooling= cmb_cooling, kn=kn)
-    
+
     rad_rvs = None
     if kwargs.get('reverse_shock', False):
         rad_rvs = Radiation(
@@ -329,11 +329,11 @@ def vegas_gaussian(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
         if isinstance(bands, str):
             bands = [bands] * len(time)
         frequency = bands_to_frequency(bands)
-    
+
     # Calculate flux density
     flux_density_cgs = model.flux_density(time_s, frequency).total
     fmjy = flux_density_cgs / 1e-26
-    
+
     # Return based on output_format
     if kwargs['output_format'] == 'flux_density':
         return fmjy
@@ -365,7 +365,7 @@ def vegas_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
     :param kg: Lorentz factor power-law index (typically 2-8)
     :param kwargs: Same optional parameters as vegas_tophat (see vegas_tophat docstring)
     :return: flux density [mJy] or AB magnitude
-    
+
     Examples:
     ---------
     Pure ISM: lognism=0.0, loga=-20
@@ -388,7 +388,7 @@ def vegas_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
     magnetar = None
     if 'magnetar_L0' in kwargs:
         magnetar = Magnetar(L0=kwargs['magnetar_L0'], t0=kwargs['magnetar_t0'], q=kwargs['magnetar_q'])
-    
+
     jet = PowerLawJet(
         theta_c=thc, E_iso=10**loge0, Gamma0=g0, k_e=ke, k_g=kg,
         spreading=kwargs.get('spreading', False),
@@ -397,14 +397,14 @@ def vegas_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
     )
 
     obs = Observer(lumi_dist=dl, z=redshift, theta_obs=thv, phi_obs=kwargs.get('phiv', 0.0))
-    
+
     xie = kwargs.get('xie', 1.0)
     ssc = kwargs.get('ssc', False)
     cmb_cooling = kwargs.get('cmb_cooling', False)
     kn = kwargs.get('kn', False)
-    
+
     rad_fwd = Radiation(eps_e=10**logepse, eps_B=10**logepsb, p=p, xi_e=xie, ssc=ssc, cmb_cooling= cmb_cooling, kn=kn)
-    
+
     rad_rvs = None
     if kwargs.get('reverse_shock', False):
         rad_rvs = Radiation(
@@ -430,11 +430,11 @@ def vegas_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, l
         if isinstance(bands, str):
             bands = [bands] * len(time)
         frequency = bands_to_frequency(bands)
-    
+
     # Calculate flux density
     flux_density_cgs = model.flux_density(time_s, frequency).total
     fmjy = flux_density_cgs / 1e-26
-    
+
     # Return based on output_format
     if kwargs['output_format'] == 'flux_density':
         return fmjy
@@ -447,7 +447,7 @@ def vegas_powerlaw_wing(time, redshift, thv, loge0_w, thc, lognism, loga, p, log
     """
     VegasAfterglow power-law wing jet with unified medium (ISM/Wind/Hybrid)
 
-    Power-law wings only (no core component). Energy and Lorentz factor follow 
+    Power-law wings only (no core component). Energy and Lorentz factor follow
     power-law profiles: E(theta) ~ E_iso_w * (theta/theta_c)^(-ke)
                         Gamma(theta) ~ Gamma0_w * (theta/theta_c)^(-kg)
 
@@ -466,7 +466,7 @@ def vegas_powerlaw_wing(time, redshift, thv, loge0_w, thc, lognism, loga, p, log
     :param kg: Lorentz factor power-law index (typically 2-8)
     :param kwargs: Same optional parameters as vegas_tophat (see vegas_tophat docstring)
     :return: flux density [mJy] or AB magnitude
-    
+
     Examples:
     ---------
     Pure ISM: lognism=0.0, loga=-20
@@ -493,14 +493,14 @@ def vegas_powerlaw_wing(time, redshift, thv, loge0_w, thc, lognism, loga, p, log
     )
 
     obs = Observer(lumi_dist=dl, z=redshift, theta_obs=thv, phi_obs=kwargs.get('phiv', 0.0))
-    
+
     xie = kwargs.get('xie', 1.0)
     ssc = kwargs.get('ssc', False)
     cmb_cooling = kwargs.get('cmb_cooling', False)
     kn = kwargs.get('kn', False)
-    
+
     rad_fwd = Radiation(eps_e=10**logepse, eps_B=10**logepsb, p=p, xi_e=xie, ssc=ssc, cmb_cooling= cmb_cooling, kn=kn)
-    
+
     rad_rvs = None
     if kwargs.get('reverse_shock', False):
         rad_rvs = Radiation(
@@ -526,11 +526,11 @@ def vegas_powerlaw_wing(time, redshift, thv, loge0_w, thc, lognism, loga, p, log
         if isinstance(bands, str):
             bands = [bands] * len(time)
         frequency = bands_to_frequency(bands)
-    
+
     # Calculate flux density
     flux_density_cgs = model.flux_density(time_s, frequency).total
     fmjy = flux_density_cgs / 1e-26
-    
+
     # Return based on output_format
     if kwargs['output_format'] == 'flux_density':
         return fmjy
@@ -539,7 +539,7 @@ def vegas_powerlaw_wing(time, redshift, thv, loge0_w, thc, lognism, loga, p, log
 
 
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2026JHEAp..5000490W/abstract')
-def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, 
+def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0,
                         theta_w, loge0_w, g0_w, **kwargs):
     """
     VegasAfterglow two-component jet with unified medium (ISM/Wind/Hybrid)
@@ -547,7 +547,7 @@ def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     Jet with narrow core (theta < theta_c) and wide component (theta_c < theta < theta_w).
     Core has uniform energy E_iso and Lorentz factor Gamma0.
     Wide component has uniform energy E_iso_w and Lorentz factor Gamma0_w.
-    
+
     Used to model jets with distinct narrow and wide emission regions, such as those
     inferred from observations of GRB 170817A.
 
@@ -567,7 +567,7 @@ def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     :param g0_w: wide component initial Lorentz factor
     :param kwargs: Same optional parameters as vegas_tophat (see vegas_tophat docstring)
     :return: flux density [mJy] or AB magnitude
-    
+
     Examples:
     ---------
     Pure ISM: lognism=0.0, loga=-20
@@ -590,7 +590,7 @@ def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     magnetar = None
     if 'magnetar_L0' in kwargs:
         magnetar = Magnetar(L0=kwargs['magnetar_L0'], t0=kwargs['magnetar_t0'], q=kwargs['magnetar_q'])
-    
+
     jet = TwoComponentJet(
         theta_c=thc, E_iso=10**loge0, Gamma0=g0,
         theta_w=theta_w, E_iso_w=10**loge0_w, Gamma0_w=g0_w,
@@ -600,14 +600,14 @@ def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     )
 
     obs = Observer(lumi_dist=dl, z=redshift, theta_obs=thv, phi_obs=kwargs.get('phiv', 0.0))
-    
+
     xie = kwargs.get('xie', 1.0)
     ssc = kwargs.get('ssc', False)
     cmb_cooling = kwargs.get('cmb_cooling', False)
     kn = kwargs.get('kn', False)
-    
+
     rad_fwd = Radiation(eps_e=10**logepse, eps_B=10**logepsb, p=p, xi_e=xie, ssc=ssc, cmb_cooling= cmb_cooling, kn=kn)
-    
+
     rad_rvs = None
     if kwargs.get('reverse_shock', False):
         rad_rvs = Radiation(
@@ -633,11 +633,11 @@ def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logep
         if isinstance(bands, str):
             bands = [bands] * len(time)
         frequency = bands_to_frequency(bands)
-    
+
     # Calculate flux density
     flux_density_cgs = model.flux_density(time_s, frequency).total
     fmjy = flux_density_cgs / 1e-26
-    
+
     # Return based on output_format
     if kwargs['output_format'] == 'flux_density':
         return fmjy
@@ -646,7 +646,7 @@ def vegas_two_component(time, redshift, thv, loge0, thc, lognism, loga, p, logep
 
 
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2026JHEAp..5000490W/abstract')
-def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0, 
+def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logepse, logepsb, g0,
                         loge0_w, g0_w, ke, kg, **kwargs):
     """
     VegasAfterglow step power-law jet with unified medium (ISM/Wind/Hybrid)
@@ -655,7 +655,7 @@ def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     Core: E(theta) = E_iso, Gamma(theta) = Gamma0
     Wings: E(theta) = E_iso_w * (theta/theta_c)^(-ke)
            Gamma(theta) = Gamma0_w * (theta/theta_c)^(-kg)
-    
+
     Combines the benefits of both tophat and power-law structures, allowing for
     a bright core with extended wings.
 
@@ -676,7 +676,7 @@ def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     :param kg: Lorentz factor power-law index for wings (typically 2-8)
     :param kwargs: Same optional parameters as vegas_tophat (see vegas_tophat docstring)
     :return: flux density [mJy] or AB magnitude
-    
+
     Examples:
     ---------
     Pure ISM: lognism=0.0, loga=-20
@@ -699,7 +699,7 @@ def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     magnetar = None
     if 'magnetar_L0' in kwargs:
         magnetar = Magnetar(L0=kwargs['magnetar_L0'], t0=kwargs['magnetar_t0'], q=kwargs['magnetar_q'])
-    
+
     jet = StepPowerLawJet(
         theta_c=thc, E_iso=10**loge0, Gamma0=g0,
         E_iso_w=10**loge0_w, Gamma0_w=g0_w, k_e=ke, k_g=kg,
@@ -709,14 +709,14 @@ def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logep
     )
 
     obs = Observer(lumi_dist=dl, z=redshift, theta_obs=thv, phi_obs=kwargs.get('phiv', 0.0))
-    
+
     xie = kwargs.get('xie', 1.0)
     ssc = kwargs.get('ssc', False)
     cmb_cooling = kwargs.get('cmb_cooling', False)
     kn = kwargs.get('kn', False)
-    
+
     rad_fwd = Radiation(eps_e=10**logepse, eps_B=10**logepsb, p=p, xi_e=xie, ssc=ssc, cmb_cooling= cmb_cooling, kn=kn)
-    
+
     rad_rvs = None
     if kwargs.get('reverse_shock', False):
         rad_rvs = Radiation(
@@ -742,11 +742,11 @@ def vegas_step_powerlaw(time, redshift, thv, loge0, thc, lognism, loga, p, logep
         if isinstance(bands, str):
             bands = [bands] * len(time)
         frequency = bands_to_frequency(bands)
-    
+
     # Calculate flux density
     flux_density_cgs = model.flux_density(time_s, frequency).total
     fmjy = flux_density_cgs / 1e-26
-    
+
     # Return based on output_format
     if kwargs['output_format'] == 'flux_density':
         return fmjy

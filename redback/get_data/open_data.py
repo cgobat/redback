@@ -133,8 +133,8 @@ class OpenDataGetter(DataGetter):
         :type data: pandas.DataFrame
         :param metadata: The metadata.
         :type metadata: pandas.DataFrame
-        :param data: pd.DataFrame: 
-        :param metadata: pd.DataFrame: 
+        :param data: pd.DataFrame:
+        :param metadata: pd.DataFrame:
 
         Returns
         -------

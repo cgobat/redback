@@ -21,7 +21,7 @@ REFERENCE_FILE = os.path.join(_dirname, "reference_results", "all_models_referen
 
 class TestAllModelsRegression(unittest.TestCase):
     """Test all models against comprehensive reference data."""
-    
+
     @classmethod
     def setUpClass(cls):
         """Load all reference data once."""
@@ -30,17 +30,17 @@ class TestAllModelsRegression(unittest.TestCase):
                 f"Reference data not found at {REFERENCE_FILE}. "
                 "Generate it with: python test/reference_results/generate_all_model_ref_data.py"
             )
-        
+
         with gzip.open(REFERENCE_FILE, 'rb') as f:
             cls.reference_data = pickle.load(f)
-        
+
         print(f"\nLoaded reference data for {len(cls.reference_data)} models")
-    
+
     def _test_model(self, model_key):
         """Generic test method for any model."""
         # Parse model key
         category, model_name = model_key.split('.')
-        
+
         # Get model function
         module_map = {
             'kilonova': redback.transient_models.kilonova_models,
@@ -50,15 +50,15 @@ class TestAllModelsRegression(unittest.TestCase):
             'afterglow': redback.transient_models.afterglow_models,
             'shock_powered': redback.transient_models.shock_powered_models,
         }
-        
+
         model_func = getattr(module_map[category], model_name)
-        
+
         # Get reference data
         ref_data = self.reference_data[model_key]
         params_list = ref_data['params']
         results_list = ref_data['results']
         metadata = ref_data['metadata']
-        
+
         # Test each parameter combination (should be 3)
         for params, ref_result in zip(params_list, results_list):
             current_kwargs = {
@@ -66,7 +66,7 @@ class TestAllModelsRegression(unittest.TestCase):
                 **metadata['eval_kwargs'],
                 **params
             }
-            
+
             for dep in metadata.get('optional_dependencies', []):
                 try:
                     importlib.import_module(dep)
@@ -77,7 +77,7 @@ class TestAllModelsRegression(unittest.TestCase):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 result = model_func(**current_kwargs)
-            
+
             # Compare results
             try:
                 np.testing.assert_allclose(result, ref_result, rtol=1e-5, atol=1e-12)
@@ -96,20 +96,20 @@ def _create_test_methods():
     if os.path.exists(REFERENCE_FILE):
         with gzip.open(REFERENCE_FILE, 'rb') as f:
             reference_data = pickle.load(f)
-        
+
         # Create a test method for each model
         for model_key in reference_data.keys():
             test_name = f"test_{model_key.replace('.', '_')}"
-            
+
             # Create test method
             def make_test(key):
                 def test_method(self):
                     self._test_model(key)
                 return test_method
-            
+
             # Add to test class
             setattr(TestAllModelsRegression, test_name, make_test(model_key))
-        
+
         print(f"Created {len(reference_data)} test methods")
 
 

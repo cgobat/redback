@@ -28,7 +28,7 @@ We will also:
 
 # 1) Adding filters to SN Cosmo
 
-# Filter response functions can be downloaded from 
+# Filter response functions can be downloaded from
 # http://svo2.cab.inta-csic.es/theory/fps/
 
 import astropy.units as u
@@ -85,7 +85,7 @@ base_model = 'arnett'
 # Putting the model family and the physical together
 
 model_kwargs = dict(
-                    bands         = sn.filtered_sncosmo_bands, 
+                    bands         = sn.filtered_sncosmo_bands,
                     base_model    = base_model,
                     output_format = 'magnitude'
                     )
@@ -101,9 +101,9 @@ priors.update(redback.priors.get_priors(model=base_model))
 priors['redshift'] = redshift
 
 # Explosion date
-priors['t0'] = bilby.core.prior.Uniform(   
+priors['t0'] = bilby.core.prior.Uniform(
                                         minimum     = data['MJD'].values.min() - 200,
-                                        maximum     = data['MJD'].values.min() - 1, 
+                                        maximum     = data['MJD'].values.min() - 1,
                                         name        = 't0',
                                         latex_label = r'$t_{\rm expl.}~\rm (day)$',
                                         unit        = None,
@@ -119,7 +119,7 @@ priors['kappa_gamma'] = 0.03
 
 
 # Ejecta mass
-priors['mej'] = bilby.core.prior.Uniform(   
+priors['mej'] = bilby.core.prior.Uniform(
                                         minimum     = 1,
                                         maximum     = 260,
                                         name        = 'mej',
@@ -129,7 +129,7 @@ priors['mej'] = bilby.core.prior.Uniform(
                                         )
 
 # Nickel fraction
-priors['f_nickel'] = bilby.core.prior.Uniform(   
+priors['f_nickel'] = bilby.core.prior.Uniform(
                                         minimum     = 0,
                                         maximum     = 1,
                                         name        = 'fni',
@@ -149,21 +149,21 @@ priors['av_host'] = bilby.core.prior.Uniform(
                                         )
 
 # Ejecta velocity
-priors['vej'] = bilby.core.prior.Uniform(   
-                                        minimum     = 1000.0,          
-                                        maximum     = 10000.0,      
-                                        name        = 'vej',               
-                                        latex_label = r'$v_{\rm ej}~\rm (km/s)$',    
+priors['vej'] = bilby.core.prior.Uniform(
+                                        minimum     = 1000.0,
+                                        maximum     = 10000.0,
+                                        name        = 'vej',
+                                        latex_label = r'$v_{\rm ej}~\rm (km/s)$',
                                         unit        = None,
                                         boundary    = None
                                         )
 
 # Temperature floor
 priors['temperature_floor'] = bilby.core.prior.Uniform(
-                                        minimum     = 5000,            
-                                        maximum     = 12000,        
-                                        name        = 'temperature_floor', 
-                                        latex_label = r'$T~(\rm K)$',                     
+                                        minimum     = 5000,
+                                        maximum     = 12000,
+                                        name        = 'temperature_floor',
+                                        latex_label = r'$T~(\rm K)$',
                                         unit        = None,
                                         boundary    = None
                                         )
@@ -185,7 +185,7 @@ priors['sigma'] = bilby.core.prior.Uniform(
 # To add such these additional source of error to our model, we
 # use the following likelihood function.
 
-likelihood_func = GaussianLikelihoodQuadratureNoise(   
+likelihood_func = GaussianLikelihoodQuadratureNoise(
                                         x        = sn.x,
                                         y        = sn.y,
                                         function = function,

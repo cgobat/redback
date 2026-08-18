@@ -407,16 +407,16 @@ class Transient(object):
 
     @classmethod
     def from_otter(
-        cls, 
-        name: str, 
-        data_mode: str = 'flux_density', 
+        cls,
+        name: str,
+        data_mode: str = 'flux_density',
         obs_type: str = 'radio',
         active_bands: Union[np.ndarray, str] = 'all',
-        plotting_order: Union[np.ndarray, str] = None, 
+        plotting_order: Union[np.ndarray, str] = None,
         use_phase_model: bool = False
     ) -> Transient:
         """Constructor method to build object from OTTER database (for non-optical data like radio/xray)
-        
+
         :param name: Name of the transient in OTTER database.
         :type name: str
         :param data_mode: Data mode used. Default is 'flux_density' for non-optical data.
@@ -430,7 +430,7 @@ class Transient(object):
         :type plotting_order: Union[np.ndarray, str], optional
         :param use_phase_model: Whether to use a phase model.
         :type use_phase_model: bool, optional
-        
+
         :return: A class instance
         :rtype: Transient
         """
@@ -438,12 +438,12 @@ class Transient(object):
             transient_type = "tidal_disruption_event"
         else:
             transient_type = cls.__name__.lower()
-        
+
         # Get data from OTTER with specified obs_type
         from redback.get_data.otter import OtterDataGetter
         getter = OtterDataGetter(transient=name, transient_type=transient_type, obs_type=obs_type)
         data = getter.get_data()
-        
+
         # Load the processed data
         df = pd.read_csv(getter.processed_file_path)
         time_days = np.array(df["time (days)"])
@@ -451,18 +451,18 @@ class Transient(object):
         flux_density = np.array(df["flux_density(mjy)"])
         flux_density_err = np.array(df["flux_density_error"])
         bands = np.array(df["band"])
-        
+
         return cls(
-            name=name, 
-            data_mode=data_mode, 
-            time=time_days, 
-            time_err=None, 
+            name=name,
+            data_mode=data_mode,
+            time=time_days,
+            time_err=None,
             time_mjd=time_mjd,
-            flux_density=flux_density, 
-            flux_density_err=flux_density_err, 
-            bands=bands, 
+            flux_density=flux_density,
+            flux_density_err=flux_density_err,
+            bands=bands,
             active_bands=active_bands,
-            use_phase_model=use_phase_model, 
+            use_phase_model=use_phase_model,
             optical_data=False,
             plotting_order=plotting_order)
 
@@ -490,7 +490,7 @@ class Transient(object):
         :type plotting_order: Union[np.ndarray, str], optional
         :param use_phase_model: Whether to use a phase model.
         :type use_phase_model: bool, optional
-        :param frequency: Array of frequencies corresponding to each observation. 
+        :param frequency: Array of frequencies corresponding to each observation.
                           If None, will be computed from bands using bands_to_frequency.
         :type frequency: np.ndarray, optional
         :param include_upper_limits: Whether to include non-detection data points as upper limits.
@@ -505,7 +505,7 @@ class Transient(object):
         """
 
         redback.utils.logger.info(f"Loading LightCurveLynx data for {name}")
-        
+
         if data is None:
             path = "simulated/" + name + ".csv"
             redback.utils.logger.info(f"Reading data from {path}")
@@ -531,10 +531,10 @@ class Transient(object):
         bands = data["filter"].to_numpy()
         unique_bands = np.unique(bands)
         redback.utils.logger.info(f"Found {len(unique_bands)} unique bands: {unique_bands}")
-        
+
         time_mjd = data["mjd"].to_numpy()
         redback.utils.logger.info(f"Time range: MJD {time_mjd.min():.2f} to {time_mjd.max():.2f}")
-        
+
         if "time_rel" in data.columns:
             time_days = data["time_rel"].to_numpy()
         elif not use_phase_model:
@@ -549,7 +549,7 @@ class Transient(object):
         magnitude_err = data["magerr"].to_numpy()
 
         redback.utils.logger.info(f"Converting magnitudes to flux and flux_density for {len(data)} observations")
-        
+
         # Compute the other values from the given magnitude and band data. We use the formulation
         # from SimulateOpticalTransient._make_observation_single().
         ref_flux = redback.utils.bands_to_reference_flux(bands)
@@ -562,7 +562,7 @@ class Transient(object):
             reference_flux=3631,
             magnitude_system='AB',
         )
-        
+
         # Set frequency array for flux_density mode
         if frequency is None:
             frequency = redback.utils.bands_to_frequency(bands)
@@ -1459,16 +1459,16 @@ class OpticalTransient(Transient):
 
     @classmethod
     def from_otter(
-        cls, 
-        name: str, 
-        data_mode: str = 'magnitude', 
+        cls,
+        name: str,
+        data_mode: str = 'magnitude',
         obs_type: str = 'uvoir',
         active_bands: Union[np.ndarray, str] = 'all',
-        plotting_order: Union[np.ndarray, str] = None, 
+        plotting_order: Union[np.ndarray, str] = None,
         use_phase_model: bool = False
     ) -> OpticalTransient:
         """Constructor method to build object from OTTER database
-        
+
         :param name: Name of the transient in OTTER database.
         :type name: str
         :param data_mode: Data mode used. Must be from `OpticalTransient.DATA_MODES`. Default is magnitude.
@@ -1482,7 +1482,7 @@ class OpticalTransient(Transient):
         :type plotting_order: Union[np.ndarray, str], optional
         :param use_phase_model: Whether to use a phase model.
         :type use_phase_model: bool, optional
-        
+
         :return: A class instance
         :rtype: OpticalTransient
         """
@@ -1490,32 +1490,32 @@ class OpticalTransient(Transient):
             transient_type = "tidal_disruption_event"
         else:
             transient_type = cls.__name__.lower()
-        
+
         # Get data from OTTER with specified obs_type
         from redback.get_data.otter import OtterDataGetter
         getter = OtterDataGetter(transient=name, transient_type=transient_type, obs_type=obs_type)
         data = getter.get_data()
-        
+
         # Load data using standard load_data method (handles data_mode selection)
         time_days, time_mjd, flux_density, flux_density_err, magnitude, magnitude_err, flux, flux_err, bands, system = \
             cls.load_data(processed_file_path=getter.processed_file_path, data_mode="all")
-        
+
         return cls(
-            name=name, 
-            data_mode=data_mode, 
-            time=time_days, 
-            time_err=None, 
+            name=name,
+            data_mode=data_mode,
+            time=time_days,
+            time_err=None,
             time_mjd=time_mjd,
-            flux_density=flux_density, 
-            flux_density_err=flux_density_err, 
+            flux_density=flux_density,
+            flux_density_err=flux_density_err,
             magnitude=magnitude,
-            magnitude_err=magnitude_err, 
-            bands=bands, 
-            system=system, 
+            magnitude_err=magnitude_err,
+            bands=bands,
+            system=system,
             active_bands=active_bands,
-            use_phase_model=use_phase_model, 
-            optical_data=True, 
-            flux=flux, 
+            use_phase_model=use_phase_model,
+            optical_data=True,
+            flux=flux,
             flux_err=flux_err,
             plotting_order=plotting_order)
 

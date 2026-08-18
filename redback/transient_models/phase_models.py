@@ -226,7 +226,7 @@ def t0_shock_powered_extinction(time, t0, av_host, **kwargs):
     """
     summary = _t0_with_extinction(time=time, t0=t0, av_host=av_host, model_type='shock_powered', **kwargs)
     return summary.observable
-    
+
 @citation_wrapper('redback')
 def t0_stellar_interaction_extinction(time, t0, av, **kwargs):
     """
@@ -238,7 +238,7 @@ def t0_stellar_interaction_extinction(time, t0, av, **kwargs):
     :return: flux_density or magnitude depending on kwargs['output_format']
     """
     summary = _t0_with_extinction(time=time, t0=t0, av=av, model_type='stellar_interaction', **kwargs)
-    return summary.observable    
+    return summary.observable
 
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2021arXiv210601556S/abstract')
 def t0_afterglow_extinction_model_d2g(time, lognh, factor, **kwargs):

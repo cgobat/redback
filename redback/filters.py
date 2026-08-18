@@ -52,11 +52,11 @@ def add_filter_svo(filter, label, plot_label=None, overwrite=False):
 
     redback_db_fname = redback.__path__[0] + '/tables/filters.csv'
     database_filters = ascii.read(redback_db_fname)
-    
+
     mask = np.where((database_filters['bands'] == label) & (database_filters['sncosmo_name'] == label))[0]
-    
+
     # Only add filter to filter database if entry does not exist in the Redback database by default
-    
+
     # If no entry exists or you choose to overwrite an entry
     if (len(mask) == 0) or overwrite:
 
@@ -76,7 +76,7 @@ def add_filter_svo(filter, label, plot_label=None, overwrite=False):
         ## Filters have a width. X-ray astronomy work in flux not flux density. To combine
         ## observations from different parts of the EM spectrum, we need to be able to
         ## convert Fnu to F.
-        
+
         ## Solution: We use the effective width to convert Fnu to F.
 
         constant   = 3631e-23*3e8*1e10 # AB mag ZP (erg/cm^2/s/Hz) x light speed (m/s) * wavelength (m)
@@ -136,17 +136,17 @@ def add_filter_user(file, label, plot_label=None, overwrite=False):
     # If no entry exists or you choose to overwrite an entry
 
     if (len(mask) == 0) or overwrite:
-        
+
         if len(mask) > 0:
             database_filters.remove_rows(mask)
 
         # Central wavelength as defined on SVO
         # int(T*l, dl) / int(T, dl)
         # unit: AA
-        
+
         wavelength_pivot  = np.trapezoid(filter_transmission['Wavelength'] * filter_transmission['Transmission'], filter_transmission['Wavelength'])
         wavelength_pivot /= np.trapezoid(filter_transmission['Transmission'], filter_transmission['Wavelength'])
-        
+
         # Effective width as defined on SVO
         # int( T(lambda), lambda ) / max( T(lambda) )
         # unit: AA
@@ -158,14 +158,14 @@ def add_filter_user(file, label, plot_label=None, overwrite=False):
         ## Filters have a width. X-ray astronomy work in flux not flux density. To combine
         ## observations from different parts of the EM spectrum, we need to be able to
         ## convert Fnu to F.
-        
+
         ## Solution: We use the effective width to convert Fnu to F.
 
         constant   = 3631e-23*3e8*1e10 # AB mag ZP (erg/cm^2/s/Hz) x light speed (m/s) * wavelength (m)
         zeroflux   = constant * ( 1 / (wavelength_pivot - effective_width/2.) - 1 / (wavelength_pivot + effective_width/2.) )
 
         # Add to Redback
-        
+
         plot_label = plot_label if plot_label != None else label
 
         print(label, wavelength_pivot * 1.0e-10, zeroflux, plot_label)
@@ -180,9 +180,9 @@ def add_filter_user(file, label, plot_label=None, overwrite=False):
         database_filters['effective_width [Hz]'].info.format = '.05e'
 
         database_filters.write(redback_db_fname, overwrite=True, format='csv')
-    
+
     else:
-        
+
         print('Filter {} already exists. Set OVERWRITE to True if you want to overwrite the existing entry'.format(label))
 
 def add_common_filters(overwrite=False):
@@ -269,7 +269,7 @@ def show_all_filters():
 
     redback_db_fname = redback.__path__[0] + '/tables/filters.csv'
     database_filters = ascii.read(redback_db_fname)
-    
+
     return database_filters
 
 def add_effective_widths():

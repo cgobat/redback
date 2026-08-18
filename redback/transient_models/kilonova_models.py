@@ -34,7 +34,7 @@ def _nicholl_bns_get_quantities(mass_1, mass_2, lambda_s, kappa_red, kappa_blue,
     :param epsilon: fraction of disk that gets unbound/ejected
     :param alpha: Enhancement of blue ejecta by NS surface winds if mtotal < prompt collapse,
                 can turn off by setting alpha=1
-    :param cos_theta_open: Lanthanide opening angle 
+    :param cos_theta_open: Lanthanide opening angle
     :param cos_theta: Viewing angle of observer
     :param kwargs: Additional keyword arguments
     :param dynamical_ejecta_error: Error in dynamical ejecta mass, default is 1 i.e., no error in fitting formula
@@ -378,7 +378,7 @@ def nicholl_bns(time, redshift, mass_1, mass_2, lambda_s, kappa_red, kappa_blue,
 
     output = _nicholl_bns_get_quantities(mass_1=mass_1, mass_2=mass_2, lambda_s=lambda_s,
                                          kappa_red=kappa_red, kappa_blue=kappa_blue, mtov=mtov,
-                                         epsilon=epsilon, alpha=alpha, cos_theta_open=cos_theta_open, 
+                                         epsilon=epsilon, alpha=alpha, cos_theta_open=cos_theta_open,
                                          cos_theta=cos_theta, **kwargs)
     cocoon_output = _shocked_cocoon_nicholl(time=time_temp, kappa=kappa_blue, mejecta=output.mejecta_blue,
                                   vejecta=output.vejecta_blue, cos_theta_cocoon=cos_theta_cocoon,

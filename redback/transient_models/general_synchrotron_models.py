@@ -27,7 +27,7 @@ def _calc_free_free_abs(frequency, Y_fe, Zbar, mej, radius_2darray, F_nu_2darray
     n_e = mej * solar_mass * 3 / (4 * np.pi * radius_2darray**3) * Y_fe / proton_mass
     tau_ff = 8.4e-28 * n_e**2 * radius_2darray * Zbar**2 * (frequency / 1.0e10) ** -2.1
     F_nu_2darray = F_nu_2darray * np.exp(-tau_ff)
-    
+
     return F_nu_2darray
 
 def _calc_compton_scat(frequency, Y_e, mej, radius_2darray, F_nu_2darray):
@@ -50,11 +50,11 @@ def _calc_compton_scat(frequency, Y_e, mej, radius_2darray, F_nu_2darray):
     if (np.size(sig_kn) > 1):
         sig_kn[msk] = sigma_T
     elif ((np.size(sig_kn) == 1) and (msk == True)):
-        sig_kn = sigma_T   
+        sig_kn = sigma_T
     kappa_comp = sig_kn * Y_e / proton_mass
     tau_comp = 3.0 * kappa_comp * mej * solar_mass / (4.0 * np.pi * radius_2darray**2)
     F_nu_2darray = F_nu_2darray * np.exp(-tau_comp)
-    
+
     return F_nu_2darray
 
 def _calc_photoelectric_abs(frequency, Zbar, mej, radius_2darray, F_nu_2darray):
@@ -70,9 +70,9 @@ def _calc_photoelectric_abs(frequency, Zbar, mej, radius_2darray, F_nu_2darray):
     kappa_pe = 2.37 * (Zbar/6.0)**3 * (frequency/2.42e18)**-3
     tau_pe = 3.0 * kappa_pe * mej * solar_mass / (4.0 * np.pi * radius_2darray**2)
     F_nu_2darray[:,msk] = F_nu_2darray[:,msk] * np.exp(-tau_pe[:,msk])
-    
+
     return F_nu_2darray
-    
+
 def _calc_optical_abs(frequency, kappa, mej, radius_2darray, F_nu_2darray):
     """
     :param frequency: frequency to calculate
@@ -85,8 +85,8 @@ def _calc_optical_abs(frequency, kappa, mej, radius_2darray, F_nu_2darray):
     msk = np.logical_and((frequency < 2.42e15),(frequency > 2.42e13))
     tau_opt = 3.0 * kappa * mej * solar_mass / (4.0 * np.pi * radius_2darray**2)
     F_nu_2darray[:,msk] = F_nu_2darray[:,msk] * np.exp(-tau_opt[:,msk])
-    
-    return F_nu_2darray    
+
+    return F_nu_2darray
 
 @citation_wrapper('Omand et al. (2024)')
 def pwn(time, redshift, mej, l0, tau_sd, nn, eps_b, gamma_b, **kwargs):
@@ -99,7 +99,7 @@ def pwn(time, redshift, mej, l0, tau_sd, nn, eps_b, gamma_b, **kwargs):
     :param nn: braking index
     :param eps_b: magnetization of the PWN
     :param gamma_b: Lorentz factor of electrons at synchrotron break
-    :param kwargs: Additional parameters - 
+    :param kwargs: Additional parameters -
     :param E_k: initial ejecta kinetic energy
     :param kappa: opacity (used only in dynamics and optical absorption)
     :param kappa_gamma: gamma-ray opacity used to calculate magnetar thermalisation efficiency (used only in dynamics)
@@ -126,14 +126,14 @@ def pwn(time, redshift, mej, l0, tau_sd, nn, eps_b, gamma_b, **kwargs):
     Zbar = kwargs.get('Zbar',8.0)
     Y_e = kwargs.get('Y_e',0.5)
     Y_fe = kwargs.get('Y_fe',0.0625)
-    
+
     ejecta_radius = 1.0e11
     epse=1.0-eps_b
     n_ism = 1.0e-5
     cosmology = kwargs.get('cosmology', cosmo)
     dl = cosmology.luminosity_distance(redshift).cgs.value
     pair_cascade_switch = kwargs.get('pair_cascade_switch', False)
-    
+
     #initial values and dynamics
     time_temp = get_optimal_time_array(1e0, 1e10, 2500)
     nu_M=3.8e22*np.ones(len(time_temp))
@@ -177,24 +177,24 @@ def pwn(time, redshift, mej, l0, tau_sd, nn, eps_b, gamma_b, **kwargs):
     if (np.max(frequency) > np.min(nu_b)):
         msk = (freq_arr >= nu_b_arr.T)
         F_nu[msk] = F_nu_0_arr.T[msk] * (freq_arr[msk] / nu_0_arr.T[msk]) ** (1-beta2)
-        
+
     if (np.min(frequency) < np.max(nu_ssa)):
         msk = (freq_arr < nu_ssa_arr.T)
-        F_nu[msk] = F_nu_ssa_arr.T[msk] * (freq_arr[msk] / nu_ssa_arr.T[msk]) ** 2.5 
-        
+        F_nu[msk] = F_nu_ssa_arr.T[msk] * (freq_arr[msk] / nu_ssa_arr.T[msk]) ** 2.5
+
     F_nu = _calc_free_free_abs(frequency, Y_fe, Zbar, mej, r_arr.T, F_nu)
     F_nu = _calc_compton_scat(frequency, Y_e, mej, r_arr.T, F_nu)
-    F_nu = _calc_optical_abs(frequency, kappa, mej, r_arr.T, F_nu) 
+    F_nu = _calc_optical_abs(frequency, kappa, mej, r_arr.T, F_nu)
     if (np.max(frequency) > 2.42e15):
         F_nu = _calc_photoelectric_abs(frequency, Zbar, mej, r_arr.T, F_nu)
 
     #interpolate for each time
     fnu_func = interp1d(time_temp/day_to_s, y=F_nu.T)
-    fnu = np.diag(fnu_func(time))   
+    fnu = np.diag(fnu_func(time))
     fmjy = np.array(fnu) / 1.0e-26 * (1.0 + redshift)
-    
+
     return fmjy
-    
+
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2022MNRAS.516.4949S/abstract')
 def kilonova_afterglow_redback(time, redshift, loge0, mej, logn0, logepse, logepsb, p,
                              **kwargs):
@@ -334,7 +334,7 @@ def kilonova_afterglow_nakarpiran(time, redshift, loge0, mej, logn0, logepse, lo
         return fmjy.value
     elif kwargs['output_format'] == 'magnitude':
         return calc_ABmag_from_flux_density(fmjy.value).value
-        
+
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2021ApJ...923L..14M/abstract')
 def thermal_synchrotron_lnu(time, logn0, v0, logr0, eta, logepse, logepsb, xi, p, **kwargs):
     """
@@ -438,7 +438,7 @@ def thermal_synchrotron_fluxdensity(time, redshift, logn0, v0, logr0, eta, logep
     lnu = thermal_synchrotron_lnu(time,logn0, v0, logr0, eta, logepse, logepsb, xi, p,**new_kwargs)
     flux_density = lnu / (4.0 * np.pi * dl**2)
     return flux_density*1.0e26
-    
+
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.5328G/abstract')
 def tde_synchrotron(time, redshift, Mej, vej, logepse, logepsb, p, **kwargs):
     """
@@ -468,7 +468,7 @@ def tde_synchrotron(time, redshift, Mej, vej, logepse, logepsb, p, **kwargs):
     if geometry == 'cone':
         F_A = 0.13
         F_V = 1.15
-    else:    
+    else:
         F_A = 1.0
         F_V = 4.0/3.0
 
@@ -480,7 +480,7 @@ def tde_synchrotron(time, redshift, Mej, vej, logepse, logepsb, p, **kwargs):
     E_eq = E / ((11.0 / 17.0) * eps ** (-6.0 / 17.0) + (6.0 / 17.0) * eps ** (11.0 / 17.0))
     chi_e = 2.0
     xi = 1.0 + (1.0 / eps_e)
-    
+
     R_prefac = (1e17 * (21.8 * 525.0 ** (p - 1.0)) ** (1.0 / (13.0 + 2.0 * p))
             * chi_e ** ((2.0 - p) / (13.0 + 2.0 * p))
             * xi ** (1.0 / (13.0 + 2.0 * p))
@@ -488,7 +488,7 @@ def tde_synchrotron(time, redshift, Mej, vej, logepse, logepsb, p, **kwargs):
             * (1.0 + redshift) ** (-(19.0 + 3.0 * p) / (13.0 + 2.0 * p))
             * F_A ** (-(5.0 + p) / (13.0 + 2.0 * p))
             * F_V ** (-1.0 / (13.0 + 2.0 * p))
-            * 4.0 ** (1.0 / (13.0 + 2.0 * p)))           
+            * 4.0 ** (1.0 / (13.0 + 2.0 * p)))
     E_prefac = (1.3e48 * 21.8 ** ((-2.0 * (p + 1.0)) / (13.0 + 2.0 * p))
             * (525 ** (p - 1.0) * chi_e ** (2.0 - p)) ** (11.0 / (13.0 + 2.0 * p))
             * xi ** (11.0 / (13.0 + 2.0 * p))
@@ -497,14 +497,14 @@ def tde_synchrotron(time, redshift, Mej, vej, logepse, logepsb, p, **kwargs):
             * F_A ** (-(3.0 * (p + 1.0)) / (13.0 + 2.0 * p))
             * F_V ** ((2.0 * (p + 1.0)) / (13.0 + 2.0 * p))
             * 4.0 ** (11.0 / (13.0 + 2.0 * p)))
-            
+
     Fvb = (E_prefac * R_eq / (R_prefac * E_eq)) ** ((2.0 * (p + 4.0)) / (13.0 + 2.0 * p))
     vb = (R_prefac * Fvb ** ((p + 6.0) / (13.0 + 2.0 * p)) / R_eq) * 1.0e10
-    
+
     if kwargs['output_format'] == 'physical_parameters':
         physical_parameters = namedtuple('physical_parameters', ['E', 'R', 'N_e', 'n_e', 'B'])
         gamma_m = 2.0
-        gamma_a = (525.0 * Fvb * (dl / 1.0e28) ** 2.0 * (1.0 + redshift) ** -3.0 
+        gamma_a = (525.0 * Fvb * (dl / 1.0e28) ** 2.0 * (1.0 + redshift) ** -3.0
                 * (vb / 1.0e10) ** -2.0 / (F_A * (R / 1.0e17) ** 2.0))
         N_e = (4.0e54 * Fvb ** 3.0 * (dl / 1.0e28) ** 6.0 * (vb / 1.0e10) ** -5.0
                 * (1.0 + redshift) ** -8.0 * F_A ** -2.0 * (R / 1.0e17) ** -4.0
@@ -516,11 +516,11 @@ def tde_synchrotron(time, redshift, Mej, vej, logepse, logepsb, p, **kwargs):
         physical_parameters.R = R
         physical_parameters.N_e = N_e
         physical_parameters.n_e = n_e
-        physical_parameters.B = B    
-        return physical_parameters    
-    else:        
+        physical_parameters.B = B
+        return physical_parameters
+    else:
         flux_density = Fvb * ((frequency / vb) ** (-beta1 * s) + (frequency / vb) ** (-beta2 * s)) ** (-1.0 / s)
-        return flux_density    
+        return flux_density
 
 @citation_wrapper('https://ui.adsabs.harvard.edu/abs/2007ihea.book.....R/abstract, https://ui.adsabs.harvard.edu/abs/2017hsn..book..875C/abstract')
 def synchrotron_massloss(time, redshift, v_s, log_Mdot_vwind, logepsb, logepse, p, **kwargs):
@@ -542,25 +542,25 @@ def synchrotron_massloss(time, redshift, v_s, log_Mdot_vwind, logepsb, logepse, 
     frequency = kwargs['frequency']
     if isinstance(frequency, float):
         frequency = np.ones(len(time)) * frequency
-    frequency, time = calc_kcorrected_properties(frequency=frequency, redshift=redshift, time=time)   
+    frequency, time = calc_kcorrected_properties(frequency=frequency, redshift=redshift, time=time)
 
     eps_e = 10.0 ** logepse
     eps_b = 10.0 ** logepsb
     v_cgs = v_s * km_cgs
     t_cgs = time * day_to_s
     r_s = v_cgs * t_cgs
-    Mdot_vwind = 10.0 ** log_Mdot_vwind    
+    Mdot_vwind = 10.0 ** log_Mdot_vwind
     Md_vw_cgs = Mdot_vwind * solar_mass / (day_to_s * 365.24) / km_cgs #g/cm
     nu_0 = 1.253e19
-   
+
     rho_csm = Md_vw_cgs / (4.0 * np.pi * r_s ** 2.0)
     u_b = eps_b * rho_csm * v_cgs ** 2.0
     B = np.sqrt(8 * np.pi * u_b)
     N_0 = 4.0 / 3.0 * np.pi * r_s ** 3.0 * eps_e * rho_csm / proton_mass
-    C_0 = 4.0 / 3.0 * N_0 * sigma_T * speed_of_light * u_b 
+    C_0 = 4.0 / 3.0 * N_0 * sigma_T * speed_of_light * u_b
     nu_L = qe * B / (2 * np.pi * electron_mass * speed_of_light)
 
-    L_nu = C_0 / (2.0 * nu_L) * (frequency / nu_L) ** ((1.0 - p) / 2.0) 
+    L_nu = C_0 / (2.0 * nu_L) * (frequency / nu_L) ** ((1.0 - p) / 2.0)
     flux_density = L_nu / (4.0 * np.pi * dl**2) / 1.0e-26
 
     Fv0 = C_0 / (2.0 * nu_L) / (4.0 * np.pi * dl**2)
@@ -572,11 +572,11 @@ def synchrotron_massloss(time, redshift, v_s, log_Mdot_vwind, logepsb, logepse, 
     if (np.min(frequency) < np.max(nu_ssa)):
         msk = (frequency < nu_ssa)
         flux_density[msk] = Fv_ssa[msk] * (frequency[msk] / nu_ssa[msk]) ** 2.5 / 1.0e-26 * (1 + redshift)
-        
-    return flux_density    
 
-@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2007ihea.book.....R/abstract, https://ui.adsabs.harvard.edu/abs/2017hsn..book..875C/abstract')    
-def synchrotron_ism(time, redshift, v_s, logn0, logepsb, logepse, p, **kwargs):  
+    return flux_density
+
+@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2007ihea.book.....R/abstract, https://ui.adsabs.harvard.edu/abs/2017hsn..book..875C/abstract')
+def synchrotron_ism(time, redshift, v_s, logn0, logepsb, logepse, p, **kwargs):
     """
     :param time: time in observer frame in days
     :param redshift: redshift
@@ -606,10 +606,10 @@ def synchrotron_ism(time, redshift, v_s, logn0, logepsb, logepse, p, **kwargs):
     nu_0 = 1.253e19
 
     rho_csm = proton_mass * n_ism
-    u_b = eps_b * rho_csm * v_cgs ** 2.0 
-    B = np.sqrt(8 * np.pi * u_b) 
-    N_0 = 4.0 / 3.0 * np.pi * r_s ** 3.0 * eps_e * n_ism 
-    C_0 = 4.0 / 3.0 * N_0 * sigma_T * speed_of_light * u_b 
+    u_b = eps_b * rho_csm * v_cgs ** 2.0
+    B = np.sqrt(8 * np.pi * u_b)
+    N_0 = 4.0 / 3.0 * np.pi * r_s ** 3.0 * eps_e * n_ism
+    C_0 = 4.0 / 3.0 * N_0 * sigma_T * speed_of_light * u_b
     nu_L = qe * B / (2 * np.pi * electron_mass * speed_of_light)
 
     L_nu = C_0 / (2.0 * nu_L) * (frequency / nu_L) ** ((1.0 - p) / 2.0)
@@ -624,11 +624,11 @@ def synchrotron_ism(time, redshift, v_s, logn0, logepsb, logepse, p, **kwargs):
     if (np.min(frequency) < np.max(nu_ssa)):
         msk = (frequency < nu_ssa)
         flux_density[msk] = Fv_ssa[msk] * (frequency[msk] / nu_ssa[msk]) ** 2.5 / 1.0e-26 * (1 + redshift)
-        
-    return flux_density   
 
-@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2007ihea.book.....R/abstract, https://ui.adsabs.harvard.edu/abs/2017hsn..book..875C/abstract')    
-def synchrotron_pldensity(time, redshift, v_s, logA, s, logepsb, logepse, p, **kwargs):    
+    return flux_density
+
+@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2007ihea.book.....R/abstract, https://ui.adsabs.harvard.edu/abs/2017hsn..book..875C/abstract')
+def synchrotron_pldensity(time, redshift, v_s, logA, s, logepsb, logepse, p, **kwargs):
     """
     :param time: time in observer frame in days
     :param redshift: redshift
@@ -656,12 +656,12 @@ def synchrotron_pldensity(time, redshift, v_s, logA, s, logepsb, logepse, p, **k
     v_cgs = v_s * km_cgs
     t_cgs = time * day_to_s
     r_s = v_cgs * t_cgs
-    nu_0 = 1.253e19    
+    nu_0 = 1.253e19
 
     n_csm = A * (r_s / 1e15) **(-s)
     rho_csm = n_csm * proton_mass
     u_b = eps_b * rho_csm * v_cgs ** 2.0
-    B = np.sqrt(8 * np.pi * u_b) 
+    B = np.sqrt(8 * np.pi * u_b)
     N_0 = 4.0 / 3.0 * np.pi * r_s ** 3.0 * eps_e * n_csm
     C_0 = 4.0 / 3.0 * N_0 * sigma_T * speed_of_light * u_b
     nu_L = qe * B / (2 * np.pi * electron_mass * speed_of_light)
@@ -680,10 +680,10 @@ def synchrotron_pldensity(time, redshift, v_s, logA, s, logepsb, logepse, p, **k
             frequency = np.ones(len(nu_ssa)) * frequency
         msk = (frequency < nu_ssa)
         flux_density[msk] = Fv_ssa[msk] * (frequency[msk] / nu_ssa[msk]) ** 2.5 / 1.0e-26 * (1 + redshift)
-        
+
     return flux_density
 
-@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2024ApJ...977..134M/abstract, https://ui.adsabs.harvard.edu/abs/2021ApJ...923L..14M/abstract')     
+@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2024ApJ...977..134M/abstract, https://ui.adsabs.harvard.edu/abs/2021ApJ...923L..14M/abstract')
 def thermal_synchrotron_v2_lnu(time, bG_sh, log_Mdot_vwind, n_ism, logepse, logepsb, xi, p, **kwargs):
     """
     :param time: time in source frame in days
@@ -708,20 +708,20 @@ def thermal_synchrotron_v2_lnu(time, bG_sh, log_Mdot_vwind, n_ism, logepse, loge
     f = kwargs.get('f', 3.0/16.0)
     epsilon_T = 10**logepse
     epsilon_B = 10**logepsb
-    frequency = kwargs['frequency']  
+    frequency = kwargs['frequency']
     t = time * day_to_s
-    
-    Mdot_vwind = 10.0 ** log_Mdot_vwind    
-    Md_vw_cgs = Mdot_vwind * solar_mass / (day_to_s * 365.24) / km_cgs #g/cm   
-    
+
+    Mdot_vwind = 10.0 ** log_Mdot_vwind
+    Md_vw_cgs = Mdot_vwind * solar_mass / (day_to_s * 365.24) / km_cgs #g/cm
+
     R = (1.0 + bG_sh**2)**0.5 * bG_sh * speed_of_light * ell_dec * t
     bG = 0.5 * (bG_sh**2 - 2.0 + (bG_sh**4 + 5.0 * bG_sh**2 + 4.0)**0.5)**0.5
     Gamma = (1.0 + bG**2)**0.5
-    
+
     #total ISM number density is sum of wind and flat density component
     Mdot_over_vw = 4.0 * np.pi * mu * proton_mass * R**2 * n_ism + Md_vw_cgs
     n = Md_vw_cgs / (4.0 * np.pi * mu * proton_mass * R**2) + n_ism
-    
+
     if np.any(Gamma==1.0):
         # fix bG << 1 case where numerical accuracy fails
         Theta = (2.0 / 3.0) * epsilon_T * (9.0 * mu * proton_mass / (32.0 * mu_e * electron_mass)) * ((16.0 / 9.0) * bG**2)
@@ -731,38 +731,38 @@ def thermal_synchrotron_v2_lnu(time, bG_sh, log_Mdot_vwind, n_ism, logepse, loge
         Theta0 = epsilon_T * ((Gamma - 1.0) * ((g * Gamma + 1.0) / (g - 1.0)) * mu * proton_mass)/(4.0 * Gamma * mu_e * electron_mass)
         Theta = (5.0 * Theta0 - 6.0 + (25.0 * Theta0**2 + 180.0 * Theta0 + 36.0)**0.5) / 30.0
         Gamma_minus_one = Gamma - 1.0
-    
+
     # prefactor for the luminosity, eq. (B13); Note---with respect to eq. (B13), this definition omits f(Theta),
     # which we instead absorb into I`(x) below.
-    L_tilde = ((4.0 * 2.0**0.5 * qe**3 * mu_e * epsilon_B**0.5 * f / (3.0**0.5 * mu * proton_mass * electron_mass * speed_of_light)) 
+    L_tilde = ((4.0 * 2.0**0.5 * qe**3 * mu_e * epsilon_B**0.5 * f / (3.0**0.5 * mu * proton_mass * electron_mass * speed_of_light))
                                * Mdot_over_vw**1.5 * Gamma**1.5 * Gamma_minus_one**0.5)
-                               
+
     # prefactor for the optical-depth, eq. (B14); Note---with respect to eq. (B13), this definition omits f(Theta),
     # which we instead absorb into I`(x) below.
     tau_Theta = ((2.0**0.5 * qe * mu_e * f / (3.0**2.5 * mu * proton_mass * speed_of_light * epsilon_B**0.5))
-                               * Mdot_over_vw**0.5 * Theta**(-5.0) * Gamma**(-0.5) * Gamma_minus_one**(-0.5))                           
-                               
+                               * Mdot_over_vw**0.5 * Theta**(-5.0) * Gamma**(-0.5) * Gamma_minus_one**(-0.5))
+
     # post-shock magnetic field
     B = (8.0 * epsilon_B * Mdot_over_vw * Gamma * Gamma_minus_one )**0.5 / ((1.0 + bG_sh**2)**0.5 *bG_sh * t)
     # thermal synchrotron frequeny (in observer frame)
     nu_T = 3.0 * Gamma * Theta**2 * qe * B / (4.0 * np.pi * electron_mass * speed_of_light)
     x = frequency / nu_T
-    
+
     aa = (6.0 + 15.0 * Theta) / (4.0 + 5.0 * Theta)
     gamma_m = 1.0 + aa * Theta
-    
+
     # the relative fraction of power-law to thermal electron energy densities
     delta = xi/epsilon_T
     # coefficient that multiplies power-law term in square-brackets in eq. (B10)
     a = (8.0 * np.pi / 3.0**0.5) *_c_j(p) * delta * _g_theta(Theta, p=p)
     # coefficient that multiplies power-law term in square-brackets in eq. (B11)
-    b = (3.0**1.5 / np.pi) *_c_alpha(p) * delta * _g_theta(Theta, p=p)    
-    
+    b = (3.0**1.5 / np.pi) *_c_alpha(p) * delta * _g_theta(Theta, p=p)
+
     # include low-frequeny corrections to the coefficients `a` and `b` defied above
     # (see e.g. low_freq_jpl_correction function for more information)
     a_corr = _low_freq_jpl_correction(x, Theta, p)
-    b_corr = _low_freq_apl_correction(x, Theta, p) 
-      
+    b_corr = _low_freq_apl_correction(x, Theta, p)
+
     # an estimate of the Lorentz factor above which electrons cool quickly
     gamma_cool = 6.0 * np.pi * electron_mass * speed_of_light / (sigma_T * B**2 * Gamma * t)
     # the Lorentz factor of thermal electrons contributing most to emission at frequency x
@@ -772,22 +772,22 @@ def thermal_synchrotron_v2_lnu(time, bG_sh, log_Mdot_vwind, n_ism, logepse, loge
     # correction terms for fast-cooling regime
     cooling_correction_th = np.minimum(1.0, gamma_cool / gamma_th)
     cooling_correction_pl = np.minimum(1.0, gamma_cool / gamma_pl)
-    
+
     I_of_x = 4.0505 * x**(-1.0 / 6.0) * (1.0 + 0.40 * x**(-0.25) + 0.5316 * x**(-0.5)) * np.exp(-1.8899 * x**(1.0 / 3.0))
     f_fun = 2.0 * Theta**2 / special.kn(2 , 1.0 / Theta)
     I = I_of_x*f_fun
     I[np.isnan(I)+np.isinf(I)] = 0.0
-    
+
     # calculate the optical depth (eq. B11)
     tau = tau_Theta *((I / x) * cooling_correction_th + b * x**(-0.5 * (p + 4.0)) * b_corr * cooling_correction_pl)
     tau_fun = np.ones_like(tau)
     tau_fun[tau > 1e-9] = (1.0 - np.exp(-tau[tau > 1e-9]) )/tau[tau > 1e-9]
-    
+
     # calculate the specific luminosity (eq. B10)
-    L_nu = L_tilde * (x * I * cooling_correction_th + a * x**(-0.5*(p - 1.0)) * a_corr * cooling_correction_pl) * tau_fun    
+    L_nu = L_tilde * (x * I * cooling_correction_th + a * x**(-0.5*(p - 1.0)) * a_corr * cooling_correction_pl) * tau_fun
     return L_nu
 
-@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2024ApJ...977..134M/abstract, https://ui.adsabs.harvard.edu/abs/2021ApJ...923L..14M/abstract')     
+@citation_wrapper('https://ui.adsabs.harvard.edu/abs/2024ApJ...977..134M/abstract, https://ui.adsabs.harvard.edu/abs/2021ApJ...923L..14M/abstract')
 def thermal_synchrotron_v2_fluxdensity(time, redshift, bG_sh, log_Mdot_vwind, n_ism, logepse, logepsb, xi, p, **kwargs):
     """
     :param time: time in source frame in days

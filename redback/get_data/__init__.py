@@ -60,12 +60,12 @@ def get_bat_xrt_afterglow_data_from_swift(
     :type force_download: bool, optional
     :param kwargs: Placeholder to prevent TypeErrors.
     :type kwargs: dict
-    
+
     :return: The processed data.
     :rtype: pandas.DataFrame
     """
     return get_swift_data(
-        grb=grb, transient_type='afterglow', data_mode=data_mode, instrument="BAT+XRT", 
+        grb=grb, transient_type='afterglow', data_mode=data_mode, instrument="BAT+XRT",
         snr=snr, force_download=force_download)
 
 
@@ -75,7 +75,7 @@ def get_prompt_data_from_swift(grb: str, bin_size: str = "1s", **kwargs: None) -
 
     :param grb: Telephone number of GRB, e.g., 'GRB140903A' or '140903A' are valid inputs.
     :type grb: str
-    :param bin_size: Bin size. Must be from `redback.get_data.swift.SwiftDataGetter.SWIFT_PROMPT_BIN_SIZES`. 
+    :param bin_size: Bin size. Must be from `redback.get_data.swift.SwiftDataGetter.SWIFT_PROMPT_BIN_SIZES`.
                      (Default value = "1s")
     :type bin_size: str, optional
     :param kwargs: Placeholder to prevent TypeErrors.
@@ -176,7 +176,7 @@ def get_tidal_disruption_event_data_from_open_transient_catalog_data(
     :type transient: str
     :param kwargs: Placeholder to prevent TypeErrors.
     :type kwargs: None
-    
+
     :return: The processed data.
     :rtype: pandas.DataFrame
     """
@@ -206,7 +206,7 @@ def get_prompt_data_from_konus(*args: list, **kwargs: None) -> pd.DataFrame:
     :type args: None
     :param kwargs: Placeholder to prevent TypeErrors.
     :type kwargs: None
-    
+
     :return: The processed data.
     :rtype: pandas.DataFrame
     """
@@ -265,7 +265,7 @@ def get_open_transient_catalog_data(
     :type transient_type: str
     :param kwargs: Placeholder to prevent TypeErrors.
     :type kwargs: None
-    
+
     :return: The processed data.
     :rtype: pandas.DataFrame
     """
@@ -331,7 +331,7 @@ def get_tidal_disruption_event_data_from_otter(transient: str, obs_type: str = '
     :type obs_type: str or list
     :param kwargs: Placeholder to prevent TypeErrors.
     :type kwargs: None
-    
+
     :return: The processed data.
     :rtype: pandas.DataFrame
     """
