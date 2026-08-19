@@ -243,8 +243,8 @@ For example, to include extinction in the :code:`arnett` model, users can do the
         'redshift': 0.8,  # Redshift of the source
     }
 
-    # generate lsstu magnitudes
-    bands = 'lsstu'  # Bands to output the light curve in
+    # generate Rubin/LSST u-band magnitudes
+    bands = 'LSST/LSST.u'  # Bands to output the light curve in
     output_format = 'magnitude'  # Output format of the light curve
 
     model = 'extinction_with_supernova_base_model'

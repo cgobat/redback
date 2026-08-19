@@ -5,6 +5,7 @@ from sncosmo import TimeSeriesSource
 
 from redback.constants import *
 from redback.utils import nu_to_lambda, bandpass_magnitude_to_flux, logger
+from redback.filters import get_bandpass, get_sncosmo_bandpass
 
 
 def _inverse_expm1(argument):
@@ -57,7 +58,6 @@ def _bandflux_redback(model, band, time_or_phase, zp, zpsys):
     have the right variable name.
     """
     from sncosmo.magsystems import get_magsystem
-    from sncosmo.bandpasses import get_bandpass
 
     if zp is not None and zpsys is None:
         logger.error("Zero point magnitude system (zpsys) must be provided when zp is specified")
@@ -84,9 +84,9 @@ def _bandflux_redback(model, band, time_or_phase, zp, zpsys):
     # Loop over unique bands.
     for b in set(band):
         mask = band == b
-        b = get_bandpass(b)
+        bandpass = get_bandpass(b)
 
-        fsum = _bandflux_single_redback(model, b, time_or_phase[mask])
+        fsum = _bandflux_single_redback(model, bandpass, time_or_phase[mask])
 
         if zp is not None:
             zpnorm = 10. ** (0.4 * zp[mask])
@@ -94,7 +94,7 @@ def _bandflux_redback(model, band, time_or_phase, zp, zpsys):
             for ms in set(bandzpsys):
                 mask2 = bandzpsys == ms
                 ms = get_magsystem(ms)
-                zpnorm[mask2] = zpnorm[mask2] / ms.zpbandflux(b)
+                zpnorm[mask2] = zpnorm[mask2] / ms.zpbandflux(get_sncosmo_bandpass(b))
             fsum *= zpnorm
 
         bandflux[mask] = fsum
@@ -121,7 +121,7 @@ def _bandmag_redback(model, band, magsys, time_or_phase):
     result = np.empty(bandflux.shape, dtype=float)
     for i, (b, ms, f) in enumerate(zip(band, magsys, bandflux)):
         ms = get_magsystem(ms)
-        zpf = ms.zpbandflux(b)
+        zpf = ms.zpbandflux(get_sncosmo_bandpass(b))
         result[i] = -2.5 * np.log10(f / zpf)
 
     if return_scalar:
@@ -162,7 +162,7 @@ class RedbackTimeSeriesSource(TimeSeriesSource):
             Parameters
             ----------
             band : str or list_like
-                Name(s) of bandpass(es) in registry.
+                SVO FPS filter ID(s). Legacy SNCosmo aliases are also accepted.
             phase : float or list_like, optional
                 Phase(s) in days. Default is `None`, which corresponds to the full
                 native phase sampling of the model.
@@ -190,7 +190,7 @@ class RedbackTimeSeriesSource(TimeSeriesSource):
             Parameters
             ----------
             band : str or list_like
-                Name(s) of bandpass in registry.
+                SVO FPS filter ID(s). Legacy SNCosmo aliases are also accepted.
             magsys : str or list_like
                 Name(s) of `~sncosmo.MagSystem` in registry.
             phase : float or list_like
@@ -982,7 +982,7 @@ def blackbody_to_spectrum(temperature, r_photosphere, frequency, dl, redshift, l
 
 def get_correct_output_format_from_spectra(time, time_eval, spectra, lambda_array, **kwargs):
     """
-    Use SNcosmo to get the bandpass flux or magnitude in AB from spectra at given times.
+    Compute bandpass fluxes or AB magnitudes from spectra using SVO FPS filter profiles.
 
     :param time: times in observer frame in days to evaluate the model on
     :param time_eval: times in observer frame where spectra are evaluated. A densely sampled array for accuracy

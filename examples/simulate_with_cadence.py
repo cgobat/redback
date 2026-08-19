@@ -47,13 +47,13 @@ if 'mej' in single_event:
 
 # Define simple cadence: observe every 2 days in g,r,i
 cadence_config = {
-    'bands': ['lsstg', 'lsstr', 'lssti'],
+    'bands': ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i'],
     'cadence_days': 2.0,  # Every 2 days
     'duration_days': 30,   # For 30 days
     'limiting_mags': {
-        'lsstg': 24.5,
-        'lsstr': 24.5,
-        'lssti': 24.0
+        'LSST/LSST.g': 24.5,
+        'LSST/LSST.r': 24.5,
+        'LSST/LSST.i': 24.0
     }
 }
 
@@ -97,12 +97,12 @@ print("\n" + "="*70)
 print("Example 2: Different Cadences Per Band")
 print("="*70)
 
-# lsstg: every 3 days, lsstr: every 1 day, lssti: every 5 days
+# LSST/LSST.g: every 3 days, LSST/LSST.r: every 1 day, LSST/LSST.i: every 5 days
 cadence_per_band = {
-    'bands': ['lsstg', 'lsstr', 'lssti'],
-    'cadence_days': {'lsstg': 3, 'lsstr': 1, 'lssti': 5},  # Different per band
+    'bands': ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i'],
+    'cadence_days': {'LSST/LSST.g': 3, 'LSST/LSST.r': 1, 'LSST/LSST.i': 5},  # Different per band
     'duration_days': 50,
-    'limiting_mags': {'lsstg': 24.5, 'lsstr': 24.5, 'lssti': 24.0}
+    'limiting_mags': {'LSST/LSST.g': 24.5, 'LSST/LSST.r': 24.5, 'LSST/LSST.i': 24.0}
 }
 
 sim2 = SimulateTransientWithCadence(
@@ -114,7 +114,7 @@ sim2 = SimulateTransientWithCadence(
 )
 
 print(f"\nTotal observations: {len(sim2.observations)}")
-for band in ['lsstg', 'lsstr', 'lssti']:
+for band in ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i']:
     n_band = len(sim2.observations[sim2.observations['band'] == band])
     n_det = len(sim2.detected_observations[sim2.detected_observations['band'] == band])
     print(f"  {band}-band: {n_band} observations, {n_det} detected")
@@ -129,11 +129,11 @@ print("="*70)
 
 # Observe in g-r-i-g-r-i pattern every night
 cadence_sequence = {
-    'bands': ['lsstg', 'lsstr', 'lssti'],
+    'bands': ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i'],
     'cadence_days': 1.0,  # Base cadence
     'duration_days': 20,
-    'limiting_mags': {'lsstg': 24.5, 'lsstr': 24.5, 'lssti': 24.0},
-    'band_sequence': ['lsstg', 'lsstr', 'lssti']  # Repeating pattern
+    'limiting_mags': {'LSST/LSST.g': 24.5, 'LSST/LSST.r': 24.5, 'LSST/LSST.i': 24.0},
+    'band_sequence': ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i']  # Repeating pattern
 }
 
 sim3 = SimulateTransientWithCadence(
@@ -163,10 +163,10 @@ print(f"\nSimulating {len(population_params)} events with cadence...")
 
 # Simple cadence for all
 simple_cadence = {
-    'bands': ['lsstr'],  # Just r-band for speed
+    'bands': ['LSST/LSST.r'],  # Just r-band for speed
     'cadence_days': 3,
     'duration_days': 40,
-    'limiting_mags': {'lsstr': 24.5}
+    'limiting_mags': {'LSST/LSST.r': 24.5}
 }
 
 n_detected_events = 0
@@ -203,10 +203,10 @@ print("Example 5: Impact of SNR Threshold")
 print("="*70)
 
 test_cadence = {
-    'bands': ['lsstr'],
+    'bands': ['LSST/LSST.r'],
     'cadence_days': 2,
     'duration_days': 30,
-    'limiting_mags': {'lsstr': 24.5}
+    'limiting_mags': {'LSST/LSST.r': 24.5}
 }
 
 snr_thresholds = [3, 5, 7, 10]
@@ -234,11 +234,11 @@ print("="*70)
 
 # Start observing 5 days after explosion
 delayed_cadence = {
-    'bands': ['lsstg', 'lsstr', 'lssti'],
+    'bands': ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i'],
     'cadence_days': 1,
     'duration_days': 20,
     'start_offset_days': 5,  # Start 5 days after t0
-    'limiting_mags': {'lsstg': 24.5, 'lsstr': 24.5, 'lssti': 24.0}
+    'limiting_mags': {'LSST/LSST.g': 24.5, 'LSST/LSST.r': 24.5, 'LSST/LSST.i': 24.0}
 }
 
 sim_delayed = SimulateTransientWithCadence(

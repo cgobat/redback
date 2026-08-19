@@ -23,7 +23,7 @@ supernova = redback.supernova.Supernova.from_open_access_catalogue(name=name,
 # We can also load data from LASAIR.
 transient = 'ZTF20aamdsjv'
 sn = redback.transient.Supernova.from_lasair_data(transient, use_phase_model=True,
-                                                  data_mode='flux_density', active_bands=np.array(['ztfr']))
+                                                  data_mode='flux_density', active_bands=np.array(['Palomar/ZTF.r']))
 
 # Here we have loaded the flux density data for this transient by specifying data_mode='flux_density'.
 # And set use_phase_model=True, which will load the time array as MJD values instead of a time since burst.
@@ -56,4 +56,4 @@ afterglow = redback.transient.Afterglow(
 
 tde = redback.transient.TDE(name='my_tde', data_mode='flux_density', time_mjd=time_d,
                             flux_density=flux_density, flux_density_err=flux_density_err,frequency=frequency,
-                            bands=np.repeat('ztfr', len(time_d)), redshift=redshift)
+                            bands=np.repeat('Palomar/ZTF.r', len(time_d)), redshift=redshift)

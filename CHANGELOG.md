@@ -1,5 +1,12 @@
 # All notable changes will be documented in this file
 
+## Unreleased
+
+### Improvements
+- Make SVO Filter Profile Service IDs the canonical photometric-filter identifiers. Filter transmission curves are sourced from SVO FPS by default, while known SNCosmo and historical Redback names remain compatibility aliases.
+- Collapse `filters.csv` to one row per SVO FPS ID and remove the ambiguous `bands` column.
+- Update synthetic photometry, plotting, transient construction, survey data getters, and SNCosmo model interfaces to pass canonical SVO FPS IDs end-to-end.
+
 ## [1.18.0] 2026-07-27
 Version 1.18.0 release of redback
 

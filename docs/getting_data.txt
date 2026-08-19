@@ -67,7 +67,10 @@ A general example which shows the API for downloading data from any of the above
 Adding filters to Redback
 -------------------------
 
-Redback includes many filters that are a part of the SN Cosmo distribution. You can get a full list using the following command:
+Redback uses identifiers from the `SVO Filter Profile Service (FPS) <http://svo2.cab.inta-csic.es/theory/fps/>`_
+as the canonical identifiers for photometric filters. For example, the ZTF r filter is
+``Palomar/ZTF.r`` and the Rubin/LSST g filter is ``LSST/LSST.g``. The bundled filter table contains
+one row per SVO FPS ID:
 
 .. code:: python
 
@@ -75,59 +78,58 @@ Redback includes many filters that are a part of the SN Cosmo distribution. You 
 
     filters.show_all_filters()
 
-We have implemented a few options to add additional filters. Note, SN Cosmo does not allow to permanently add a filter to its filter database. This means that you have add any non-default filter to Redback every time you start a new session. In the following we describe different methods of adding a filter.
+The SVO FPS ID is the primary key. SNCosmo filter names and historical Redback band names are retained
+only as backwards-compatible aliases where a mapping is known. New code and new data products should
+store the SVO FPS ID directly.
 
-* Adding a filter from a text file
+Transmission curves are retrieved from SVO FPS when synthetic photometry is evaluated. Redback and
+Astroquery cache these queries, so the transmission curve does not need to be downloaded for every
+model evaluation. A valid SVO FPS ID can therefore be used even if it is not already present in the
+bundled metadata table.
+
+* Adding an SVO FPS filter to the metadata table
 
 .. code:: python
 
     from redback import filters
 
-    fname        = 'Gemini_GMOS-N.u.dat'
+    filters.add_filter_svo("LaSilla/GROND.g")
 
-    # Unique filter label
-    filter_label = 'gmos-n::u'
-
-    # Label shown in the plotting
-    plot_label   = 'GMOS-N/u' 
-
-    # If you want to overwrite any existing entry
-
-    overwrite    = True
-
-    filters.add_filter_user(fname, filter_label, PLOT_LABEL=plot_label, OVERWRITE=overwrite)
-
-* Adding a filter using the Spanish Virtual Observatory
-
-The `Spanish Virtual Observatory (SVO) <http://svo2.cab.inta-csic.es/>`_ has an extensive repository of astronomical filters of many observatories and space telescopes. The developer version of `Astroquery <https://astroquery.readthedocs.io/en/latest/>`_ allows accessing the SVO in a very convenient way. It is straightforward to add a filter from the SVO to Redback.
+``add_filter_svo`` also accepts a row returned by ``SvoFps.get_filter_list``. The row's ``filterID``
+is used as the canonical key; an optional historical label is stored only as an alias.
 
 .. code:: python
 
     from astroquery.svo_fps import SvoFps
     from redback import filters
 
-    # We want to add GROND filters to Redback
-    filter_table  = SvoFps.get_filter_list(facility='La Silla', instrument='GROND')
+    filter_table = SvoFps.get_filter_list(facility="La Silla", instrument="GROND")
+    for filter_row in filter_table:
+        filters.add_filter_svo(filter_row)
 
-    # The table has many columns. The filter ID are stored in 'filterID'.
-    # We use this column to construct the filter label and the plot labels.
+* Using a local transmission curve
 
-    # Unique filter labels
-    filter_label = ['grond::' + x.split('/')[1].split('.')[1] for x in filter_table['filterID']]
-
-    # Plot labels
-    plot_label   = ['GROND/' + x.split('/')[1].split('.')[1] for x in filter_table['filterID']]
-
-    [filters.add_filter_svo(filter_table[ii], filter_label[ii], plot_label[ii]) for ii in range(len(filter_table))]
-
-We have pre-configured Redback to add a set of filters that are not a part of SN Cosmo distribution. The pre-configured list includes the Euclid Space Telescope, the GROND camera at the 2.2m MPG telescope, the EFOSC2/Gunn filters at 3.58m NTT telescope, the Spitzer Space Telescope and the WISE Space Telescope. To add them you need the developer version of `Astroquery <https://astroquery.readthedocs.io/en/latest/>`_.
+A local two-column wavelength/transmission file can be registered for the current Python process.
+Wavelengths must be in Angstrom. Because such a curve has no SVO FPS identity, it is not written into
+the canonical filter table.
 
 .. code:: python
 
-    from astroquery.svo_fps import SvoFps
     from redback import filters
 
-    filters.add_common_filters()
+    filters.add_filter_user("Gemini_GMOS-N.u.dat", "my-gmos-n-u")
+
+For a persistent, globally unambiguous filter identity, prefer an existing SVO FPS profile (or publish
+the profile to SVO FPS) and use its SVO FPS ID.
+
+Backwards compatibility
+~~~~~~~~~~~~~~~~~~~~~~~
+
+SNCosmo names such as ``ztfr`` and historical Redback aliases such as ``r`` are still accepted where
+their mapping is unambiguous, but are normalized internally to the corresponding SVO FPS ID. These
+aliases are deprecated for new data because names such as ``r`` do not identify a unique physical
+bandpass. For example, use ``Palomar/ZTF.r``, ``LSST/LSST.r``, or ``APO/SDSS.r`` explicitly rather
+than a bare ``r``.
 
 Notes
 -------------------------
@@ -141,5 +143,5 @@ from the processed file (keeping the raw data intact).
 Redback also assumes the data is as observed i.e., without any extinction corrections applied.
 If this is not true, you are better off using/editing the raw data and loading the redback transient object manually instead of using the class methods.
 
-You should also check that the filter names are correct. For example, 'r' band in redback is treated as the SDSS r band,
-but it may actually be referring to the R band or e.g., ZTF/LSST r band which have different filter response functions.
+You should also check that the filter identity is correct. New Redback data should use the full SVO FPS ID
+so the facility/instrument and physical response curve are explicit; avoid ambiguous bare labels such as ``r``.

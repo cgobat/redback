@@ -40,6 +40,7 @@ setup(
         "bilby",
         "regex",
         "sncosmo",
+        "astroquery",
         "afterglowpy",
     ],
     extras_require={
@@ -55,7 +56,6 @@ setup(
             "tensorflow",
             "keras",
             "kilonovanet",
-            "astroquery",
             "pyphot==1.6.0",
             "swifttools",
         ],

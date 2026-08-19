@@ -110,14 +110,14 @@ class FinkDataGetter(DataGetter):
         processed_data = pd.DataFrame()
         if self.source == 'ztf':
             raw_data = raw_data[raw_data['d:tag']=='valid']
-            fink_to_ztf_bands = {1: "ztfg", 2: "ztfr", 3:'ztfi'}
+            fink_to_ztf_bands = {1: "Palomar/ZTF.g", 2: "Palomar/ZTF.r", 3: "Palomar/ZTF.i"}
             processed_data["time"] = jd_to_mjd(raw_data["i:jd"].values)
             processed_data["magnitude"] = raw_data['i:magap'].values
             processed_data["e_magnitude"] = raw_data['i:sigmagap'].values
             processed_data['system'] = 'AB'
             processed_data['band'] = [fink_to_ztf_bands[x] for x in raw_data['i:fid']]
         elif self.source == 'lsst':
-            fink_to_lsst_bands = {'u':"lsstu", 'g':"lsstg", 'r':"lsstr", 'i':"lssti", 'z':"lsstz", 'y':"lssty"}
+            fink_to_lsst_bands = {'u': "LSST/LSST.u", 'g': "LSST/LSST.g", 'r': "LSST/LSST.r", 'i': "LSST/LSST.i", 'z': "LSST/LSST.z", 'y': "LSST/LSST.y"}
             processed_data['time'] = raw_data['r:midpointMjdTai']
 
             # Convert flux to magnitude: m = -2.5*log10(F) + zeropoint

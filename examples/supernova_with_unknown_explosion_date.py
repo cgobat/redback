@@ -26,21 +26,16 @@ We will also:
 -Modify settings of the nested sampler
 """
 
-# 1) Adding filters to SN Cosmo
+# 1) Ensure the SVO FPS filters used by the data are present in Redback
 
 # Filter response functions can be downloaded from
 # http://svo2.cab.inta-csic.es/theory/fps/
 
-import astropy.units as u
-import sncosmo
-
 from astroquery.svo_fps import SvoFps
 
-filter_list  = SvoFps.get_filter_list(facility='La Silla', instrument='GROND')
-filter_label = ['grond::' + x.split('/')[1].split('.')[1] for x in filter_list['filterID']]
-plot_label   = ['GROND/' + x.split('/')[1].split('.')[1] for x in filter_list['filterID']]
-
-[filters.add_filter_svo(filter_list[ii], filter_label[ii], plot_label[ii]) for ii in range(len(filter_list))]
+filter_list = SvoFps.get_filter_list(facility='La Silla', instrument='GROND')
+for filter_row in filter_list:
+    filters.add_filter_svo(filter_row)
 
 # 2) Read in the data and put the data into a Redback SN object
 
@@ -85,7 +80,7 @@ base_model = 'arnett'
 # Putting the model family and the physical together
 
 model_kwargs = dict(
-                    bands         = sn.filtered_sncosmo_bands,
+                    bands         = sn.filtered_bands,
                     base_model    = base_model,
                     output_format = 'magnitude'
                     )

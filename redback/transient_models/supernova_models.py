@@ -7,6 +7,7 @@ from redback.transient_models.shock_powered_models import  _shocked_cocoon, _csm
 import redback.interaction_processes as ip
 import redback.sed as sed
 from redback.sed import flux_density_to_spectrum, blackbody_to_spectrum
+from redback.filters import get_sncosmo_bandpass, sncosmo_bandmag
 import redback.photosphere as photosphere
 from astropy.cosmology import Planck18 as cosmo  # noqa
 from redback.utils import (calc_kcorrected_properties, citation_wrapper, logger, get_csm_properties, nu_to_lambda, get_optimal_time_array,
@@ -41,7 +42,7 @@ def sncosmo_models(time, redshift, model_kwargs=None, **kwargs):
     :param use_set_peak_magnitude: Boolean for whether to set the peak magnitude or not. Default False,
         if True the following keyword arguments also apply. Else the brightness is set by the model_kwargs.
     :param peak_abs_mag: SNe peak absolute magnitude default set to -19
-    :param peak_abs_mag_band: Band corresponding to the peak abs mag limit, default to standard::b. Must be in SNCosmo
+    :param peak_abs_mag_band: Band corresponding to the peak abs mag limit, default to Generic/Bessell.B. SNCosmo aliases are also accepted
     :param magnitude_system: Mag system; default ab
     :return: set by output format - 'flux_density', 'magnitude', 'flux', 'sncosmo_source'
     """
@@ -75,9 +76,9 @@ def sncosmo_models(time, redshift, model_kwargs=None, **kwargs):
 
     if use_set_peak_magnitude:
         peak_abs_mag = kwargs.get('peak_abs_mag', -19)
-        peak_abs_mag_band = kwargs.get('peak_abs_mag_band', 'standard::b')
+        peak_abs_mag_band = kwargs.get('peak_abs_mag_band', 'Generic/Bessell.B')
         magsystem = kwargs.get('magnitude_system', 'ab')
-        model.set_source_peakabsmag(peak_abs_mag, band=peak_abs_mag_band, magsys=magsystem, cosmo=cosmology)
+        model.set_source_peakabsmag(peak_abs_mag, band=get_sncosmo_bandpass(peak_abs_mag_band), magsys=magsystem, cosmo=cosmology)
 
     if kwargs['output_format'] == 'flux_density':
         frequency = kwargs['frequency']
@@ -108,11 +109,11 @@ def sncosmo_models(time, redshift, model_kwargs=None, **kwargs):
 
     if kwargs['output_format'] == 'flux':
         bands = kwargs['bands']
-        magnitude = model.bandmag(time=time, band=bands, magsys='ab')
+        magnitude = sncosmo_bandmag(model, time=time, filters=bands, magsys='ab')
         return np.nan_to_num(sed.bandpass_magnitude_to_flux(magnitude=magnitude, bands=bands))
     elif kwargs['output_format'] == 'magnitude':
         bands = kwargs['bands']
-        magnitude = model.bandmag(time=time, band=bands, magsys='ab')
+        magnitude = sncosmo_bandmag(model, time=time, filters=bands, magsys='ab')
         return np.nan_to_num(magnitude)
     elif kwargs['output_format'] == 'sncosmo_source':
         return model
@@ -136,7 +137,7 @@ def salt2(time, redshift, x0, x1, c, peak_time, **kwargs):
     :param use_set_peak_magnitude: Boolean for whether to set the peak magnitude or not. Default False,
         if True the following keyword arguments also apply. Else the brightness is set by the model_kwargs.
     :param peak_abs_mag: SNe peak absolute magnitude default set to -19
-    :param peak_abs_mag_band: Band corresponding to the peak abs mag limit, default to standard::b. Must be in SNCosmo
+    :param peak_abs_mag_band: Band corresponding to the peak abs mag limit, default to Generic/Bessell.B. SNCosmo aliases are also accepted
     :param magnitude_system: Mag system; default ab
     :param output_format: 'flux_density', 'magnitude', 'spectra', 'flux', 'sncosmo_source'
     :return: set by output format - 'flux_density', 'magnitude', 'flux', 'sncosmo_source'
@@ -184,7 +185,7 @@ def sn1998bw_template(time, redshift, amplitude, **kwargs):
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
     model.set(z=original_redshift, t0=original_peak_time)
-    model.set_source_peakmag(14.25, band='bessellb', magsys='ab')
+    model.set_source_peakmag(14.25, band=get_sncosmo_bandpass('Generic/Bessell.B'), magsys='ab')
     tts = np.geomspace(0.01, 90, 200)
     lls = np.linspace(1620, 11000, 300)
     f_lambda = model.flux(tts, lls) #erg/s/cm^2/Angstrom.
@@ -270,7 +271,7 @@ def sn1998bw_template_with_extrapolation(time, redshift, amplitude, **kwargs):
     # From roughly matching to Galama+ or Clocchiatti+1998bw light curves
     original_peak_time = 15
     model.set(z=original_redshift, t0=original_peak_time)
-    model.set_source_peakmag(14.25, band='bessellb', magsys='ab')
+    model.set_source_peakmag(14.25, band=get_sncosmo_bandpass('Generic/Bessell.B'), magsys='ab')
     #define extended time and wavelength ranges
     tts = np.geomspace(0.1, 120, 100)
     lls_rest = np.logspace(2, 6, 500)
@@ -1082,7 +1083,7 @@ def arnett_with_features(time, redshift, f_nickel, mej, **kwargs):
                    amplitude_feature_1=-0.4,
                    t_start_feature_1=0,
                    t_end_feature_1=30,
-                   output_format='magnitude', bands='lsstg')
+                   output_format='magnitude', bands='LSST/LSST.g')
 
     # Multiple features
     result = model(time, z, f_ni, mej,
@@ -1093,7 +1094,7 @@ def arnett_with_features(time, redshift, f_nickel, mej, **kwargs):
                    rest_wavelength_feature_3=8600.0, sigma_feature_3=500.0,
                    amplitude_feature_3=-0.3, t_start_feature_3=0, t_end_feature_3=50,
                    evolution_mode='smooth',
-                   output_format='magnitude', bands='lsstg')
+                   output_format='magnitude', bands='LSST/LSST.g')
 
     :return: set by output format - 'flux_density', 'magnitude', 'spectra', 'flux', 'sncosmo_source'
     """

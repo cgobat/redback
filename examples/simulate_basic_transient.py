@@ -6,7 +6,7 @@ import numpy as np
 from redback.simulate_transients import SimulateGenericTransient
 # Let's set up the parameters of our model
 # We will use the one_component_kilonova_model implemented in redback but any optical model in Redback will work.
-bands = ['lsstg', 'lsstr', 'lssti']
+bands = ['LSST/LSST.g', 'LSST/LSST.r', 'LSST/LSST.i']
 times = np.linspace(0.2, 10, 20) # days
 model_kwargs = {'bands':bands, 'output_format':'magnitude'}
 num_of_data_points = 40 # the number of data points to generate

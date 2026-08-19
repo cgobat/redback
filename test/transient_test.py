@@ -319,8 +319,8 @@ class TestOpticalTransient(unittest.TestCase):
         self.name = "SN2000A"
         self.photon_index = 2
         self.use_phase_model = False
-        self.bands = np.array(['i', 'g', 'g'])
-        self.active_bands = np.array(['g'])
+        self.bands = np.array(['APO/SDSS.i', 'APO/SDSS.g', 'APO/SDSS.g'])
+        self.active_bands = np.array(['APO/SDSS.g'])
         self.transient = redback.transient.transient.OpticalTransient(
             time=self.time, time_err=self.time_err, flux_density=self.y, flux_density_err=self.y_err,
             redshift=self.redshift, data_mode=self.data_mode, name=self.name,
@@ -438,7 +438,7 @@ class TestOpticalTransient(unittest.TestCase):
             self.assertTrue(np.allclose(expected_flux_err, transient.flux_err))
             self.assertTrue(np.allclose(expected_magnitude, transient.magnitude))
             self.assertTrue(np.allclose(expected_magnitude_err, transient.magnitude_err))
-            self.assertTrue(np.array_equal(expected_bands, transient.bands))
+            self.assertTrue(np.array_equal(redback.filters.canonicalize_filter_ids(expected_bands), transient.bands))
             self.assertTrue(np.array_equal(expected_system, transient.system))
 
     def test_set_active_bands(self):
@@ -450,7 +450,7 @@ class TestOpticalTransient(unittest.TestCase):
             redshift=self.redshift, data_mode=self.data_mode, name=self.name,
             photon_index=self.photon_index, use_phase_model=self.use_phase_model, bands=self.bands,
             active_bands='all')
-        self.assertTrue(np.array_equal(np.array(['g', 'i']), self.transient.active_bands))
+        self.assertTrue(np.array_equal(np.array(['APO/SDSS.g', 'APO/SDSS.i']), self.transient.active_bands))
 
     def test_set_frequencies_from_bands(self):
         expected = [1, 2, 2]
@@ -512,7 +512,7 @@ class TestOpticalTransient(unittest.TestCase):
             self.assertEqual(expected, self.transient.transient_dir)
 
     def test_unique_bands(self):
-        expected = np.array(['g', 'i'])
+        expected = np.array(['APO/SDSS.g', 'APO/SDSS.i'])
         self.assertTrue(np.array_equal(expected, self.transient.unique_bands))
 
     def test_list_of_band_indices(self):
@@ -521,7 +521,10 @@ class TestOpticalTransient(unittest.TestCase):
         self.assertTrue(np.array_equal(expected[1], self.transient.list_of_band_indices[1]))
 
     def test_default_colors(self):
-        expected = ["g", "r", "i", "z", "y", "J", "H", "K"]
+        expected = [
+            "APO/SDSS.g", "APO/SDSS.r", "APO/SDSS.i", "APO/SDSS.z",
+            "PAN-STARRS/PS1.y", "2MASS/2MASS.J", "2MASS/2MASS.H", "2MASS/2MASS.K",
+        ]
         self.assertListEqual(expected, self.transient.default_filters)
 
     def test_get_colors(self):
@@ -665,8 +668,8 @@ class TestAfterglow(unittest.TestCase):
         self.data_mode = 'flux'
         self.name = "GRB070809"
         self.use_phase_model = False
-        self.bands = np.array(['i', 'g', 'g'])
-        self.active_bands = np.array(['g'])
+        self.bands = np.array(['APO/SDSS.i', 'APO/SDSS.g', 'APO/SDSS.g'])
+        self.active_bands = np.array(['APO/SDSS.g'])
         self.FluxToLuminosityConverter = MagicMock()
         self.Truncator = MagicMock()
         self.sgrb = redback.transient.afterglow.SGRB(
@@ -766,7 +769,7 @@ class TestAfterglow(unittest.TestCase):
         self.assertTrue(np.array_equal(np.array(self.active_bands), self.sgrb.active_bands))
 
     def test_set_active_bands_all(self):
-        self.assertTrue(np.array_equal(np.array(['g', 'i']), self.sgrb_all_active_bands.active_bands))
+        self.assertTrue(np.array_equal(np.array(['APO/SDSS.g', 'APO/SDSS.i']), self.sgrb_all_active_bands.active_bands))
 
     def test_set_frequencies_from_bands(self):
         expected = [1, 2, 2]
@@ -1264,7 +1267,8 @@ class TestFromSimulatedOpticalData(unittest.TestCase):
         np.testing.assert_array_equal(instance.time_mjd, np.array(mock_data["time"]))
         np.testing.assert_array_equal(instance.magnitude, np.array(mock_data["magnitude"]))
         np.testing.assert_array_equal(instance.magnitude_err, np.array(mock_data["e_magnitude"]))
-        np.testing.assert_array_equal(instance.bands, np.array(mock_data["band"]))
+        np.testing.assert_array_equal(
+            instance.bands, np.array(["APO/SDSS.g", "APO/SDSS.r", "APO/SDSS.i"]))
         np.testing.assert_array_equal(instance.flux, np.array(mock_data["flux(erg/cm2/s)"]))
         np.testing.assert_array_equal(instance.flux_err, np.array(mock_data["flux_error"]))
         np.testing.assert_array_equal(instance.flux_density, np.array(mock_data["flux_density(mjy)"]))
@@ -1392,7 +1396,8 @@ class TestFromLightCurveLynx(unittest.TestCase):
         np.testing.assert_array_equal(instance.time_mjd, np.array(mock_df["mjd"]))
         np.testing.assert_array_equal(instance.magnitude, np.array(mock_df["mag"]))
         np.testing.assert_array_equal(instance.magnitude_err, np.array(mock_df["magerr"]))
-        np.testing.assert_array_equal(instance.bands, np.array(mock_df["filter"]))
+        np.testing.assert_array_equal(
+            instance.bands, redback.filters.canonicalize_filter_ids(mock_df["filter"].to_numpy()))
         np.testing.assert_array_equal(instance.time, np.array(mock_df["time_rel"]))
 
         # Check that we have the other columns.
@@ -1461,7 +1466,8 @@ class TestFromLasairTransient(unittest.TestCase):
         np.testing.assert_array_equal(transient.time_mjd, self.mock_data["time"])
         np.testing.assert_array_equal(transient.magnitude, self.mock_data["magnitude"])
         np.testing.assert_array_equal(transient.magnitude_err, self.mock_data["e_magnitude"])
-        np.testing.assert_array_equal(transient.bands, self.mock_data["band"])
+        np.testing.assert_array_equal(
+            transient.bands, redback.filters.canonicalize_filter_ids(self.mock_data["band"]))
         np.testing.assert_array_equal(transient.flux, self.mock_data["flux(erg/cm2/s)"])
         np.testing.assert_array_equal(transient.flux_err, self.mock_data["flux_error"])
         np.testing.assert_array_equal(transient.flux_density, self.mock_data["flux_density(mjy)"])
@@ -1498,6 +1504,36 @@ class TestFromLasairTransient(unittest.TestCase):
                 use_phase_model=False
             )
 
+class TestSVOFilterIdentifiers(unittest.TestCase):
+
+    def test_sncosmo_band_alias_is_normalized_to_svo_id(self):
+        transient = redback.transient.Transient(
+            time=np.array([1.0]),
+            magnitude=np.array([20.0]),
+            magnitude_err=np.array([0.1]),
+            bands=np.array(["ztfr"]),
+            data_mode="magnitude",
+            active_bands="all",
+        )
+        np.testing.assert_array_equal(transient.bands, np.array(["Palomar/ZTF.r"], dtype=object))
+        np.testing.assert_array_equal(transient.filtered_svofps_ids, np.array(["Palomar/ZTF.r"], dtype=object))
+        np.testing.assert_array_equal(transient.filtered_sncosmo_bands, np.array(["ztfr"]))
+
+    def test_legacy_band_alias_is_normalized_case_sensitively(self):
+        transient = redback.transient.Transient(
+            time=np.array([1.0, 2.0]),
+            magnitude=np.array([20.0, 20.5]),
+            magnitude_err=np.array([0.1, 0.1]),
+            bands=np.array(["R", "r"]),
+            data_mode="magnitude",
+            active_bands="all",
+        )
+        np.testing.assert_array_equal(
+            transient.bands,
+            np.array(["Generic/Bessell.R", "APO/SDSS.r"], dtype=object),
+        )
+
+
 class TestTransientProperties(unittest.TestCase):
     """Test Transient class properties that aren't well covered"""
 
@@ -1505,14 +1541,14 @@ class TestTransientProperties(unittest.TestCase):
         self.time = np.array([1, 2, 3, 4, 5])
         self.flux = np.array([1e-12, 2e-12, 1.5e-12, 1e-12, 0.5e-12])
         self.flux_err = np.array([1e-13, 2e-13, 1.5e-13, 1e-13, 0.5e-13])
-        self.bands = np.array(['r', 'g', 'i', 'r', 'g'])
-
+        self.bands = np.array(['APO/SDSS.r', 'APO/SDSS.g', 'APO/SDSS.i', 'APO/SDSS.r', 'APO/SDSS.g'])
+        
     def test_filtered_frequencies(self):
         """Test filtered_frequencies property"""
         transient = redback.transient.Transient(
             time=self.time, flux=self.flux, flux_err=self.flux_err,
             bands=self.bands, data_mode='flux', name='TestTransient',
-            active_bands=['r', 'g', 'i'])
+            active_bands=['APO/SDSS.r', 'APO/SDSS.g', 'APO/SDSS.i'])
 
         # Should have filtered_frequencies attribute
         self.assertTrue(hasattr(transient, 'filtered_frequencies'))
@@ -1522,7 +1558,7 @@ class TestTransientProperties(unittest.TestCase):
         transient = redback.transient.Transient(
             time=self.time, flux=self.flux, flux_err=self.flux_err,
             bands=self.bands, data_mode='flux', name='TestTransient',
-            active_bands=['r', 'g', 'i'])
+            active_bands=['APO/SDSS.r', 'APO/SDSS.g', 'APO/SDSS.i'])
 
         # Should have filtered_sncosmo_bands attribute
         self.assertTrue(hasattr(transient, 'filtered_sncosmo_bands'))
@@ -1532,7 +1568,7 @@ class TestTransientProperties(unittest.TestCase):
         transient = redback.transient.Transient(
             time=self.time, flux=self.flux, flux_err=self.flux_err,
             bands=self.bands, data_mode='flux', name='TestTransient',
-            active_bands=['r', 'g', 'i'])
+            active_bands=['APO/SDSS.r', 'APO/SDSS.g', 'APO/SDSS.i'])
 
         filtered_bands = transient.filtered_bands
         # Should return some bands
@@ -1587,7 +1623,7 @@ class TestOpticalTransientProperties(unittest.TestCase):
         self.time = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         self.magnitude = np.array([18.0, 19.0, 19.5, 20.0, 20.5])
         self.magnitude_err = np.array([0.1, 0.1, 0.1, 0.1, 0.1])
-        self.bands = np.array(['r', 'r', 'r', 'r', 'r'])
+        self.bands = np.array(['APO/SDSS.r'] * 5)
 
     def test_event_table_property(self):
         """Test that event_table property exists"""
@@ -1608,7 +1644,7 @@ class TestTransientSetBandsAndFrequency(unittest.TestCase):
         time = np.array([1.0, 2.0, 3.0])
         flux = np.array([1e-12, 2e-12, 1.5e-12])
         flux_err = np.array([1e-13, 2e-13, 1.5e-13])
-        bands = np.array(['r', 'r', 'r'])
+        bands = np.array(['APO/SDSS.r'] * 3)
 
         transient = redback.transient.Transient(
             time=time, flux=flux, flux_err=flux_err, bands=bands,
@@ -1725,7 +1761,7 @@ class TestKilonovaTransient(unittest.TestCase):
         self.time_err = np.array([0.1, 0.1, 0.1])
         self.flux_density = np.array([1e-3, 2e-3, 3e-3])
         self.flux_density_err = np.array([1e-4, 2e-4, 3e-4])
-        self.bands = np.array(['r', 'r', 'r'])
+        self.bands = np.array(['APO/SDSS.r'] * 3)
         self.system = np.array(['AB', 'AB', 'AB'])
         self.redshift = 0.01
         self.name = 'test_kilonova'
@@ -1768,7 +1804,7 @@ class TestSupernovaTransient(unittest.TestCase):
         self.time_err = np.array([0.1, 0.1, 0.1])
         self.flux_density = np.array([1e-3, 2e-3, 3e-3])
         self.flux_density_err = np.array([1e-4, 2e-4, 3e-4])
-        self.bands = np.array(['r', 'r', 'r'])
+        self.bands = np.array(['APO/SDSS.r'] * 3)
         self.system = np.array(['AB', 'AB', 'AB'])
         self.redshift = 0.01
         self.name = 'test_supernova'
@@ -1811,7 +1847,7 @@ class TestTDETransient(unittest.TestCase):
         self.time_err = np.array([0.1, 0.1, 0.1])
         self.flux_density = np.array([1e-3, 2e-3, 3e-3])
         self.flux_density_err = np.array([1e-4, 2e-4, 3e-4])
-        self.bands = np.array(['r', 'r', 'r'])
+        self.bands = np.array(['APO/SDSS.r'] * 3)
         self.system = np.array(['AB', 'AB', 'AB'])
         self.redshift = 0.01
         self.name = 'test_tde'
@@ -2037,7 +2073,7 @@ class TestTransientAdditional(unittest.TestCase):
     def test_set_bands_and_frequency_both_given(self):
         """Both given → stored verbatim."""
         t = self._make()
-        b = np.array(['g', 'r'])
+        b = np.array(['APO/SDSS.g', 'APO/SDSS.r'])
         f = np.array([6.3e14, 4.8e14])
         t.set_bands_and_frequency(bands=b, frequency=f)
         np.testing.assert_array_equal(t._bands, b)
@@ -2054,7 +2090,7 @@ class TestTransientAdditional(unittest.TestCase):
     def test_set_bands_and_frequency_only_bands(self):
         """Only bands given → _frequency computed via bands_to_frequency."""
         t = self._make()
-        b = np.array(['lsstz', 'lsstz'])
+        b = np.array(['LSST/LSST.z', 'LSST/LSST.z'])
         t.set_bands_and_frequency(bands=b, frequency=None)
         np.testing.assert_array_equal(t._bands, b)
         self.assertIsNotNone(t._frequency)
@@ -2066,16 +2102,16 @@ class TestTransientAdditional(unittest.TestCase):
     def test_active_bands_setter_all(self):
         """'all' → unique bands from self.bands."""
         t = self._make()
-        t._bands = np.array(['g', 'r', 'g', 'i'])
+        t._bands = np.array(['APO/SDSS.g', 'APO/SDSS.r', 'APO/SDSS.g', 'APO/SDSS.i'])
         t.active_bands = 'all'
-        self.assertEqual(sorted(t.active_bands), ['g', 'i', 'r'])
+        self.assertEqual(sorted(t.active_bands), ['APO/SDSS.g', 'APO/SDSS.i', 'APO/SDSS.r'])
 
     def test_active_bands_setter_list(self):
         """List passed directly."""
         t = self._make()
-        t._bands = np.array(['g', 'r', 'g'])
-        t.active_bands = ['g']
-        self.assertEqual(t.active_bands, ['g'])
+        t._bands = np.array(['APO/SDSS.g', 'APO/SDSS.r', 'APO/SDSS.g'])
+        t.active_bands = ['APO/SDSS.g']
+        self.assertEqual(t.active_bands, ['APO/SDSS.g'])
 
     # ------------------------------------------------------------------
     # filtered_indices

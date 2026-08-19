@@ -168,10 +168,10 @@ class TestCheckKwargsValidity(unittest.TestCase):
     @patch('redback.utils.bands_to_frequency')
     def test_check_kwargs_validity_flux_density_adds_frequency(self, mock_bands_to_frequency):
         mock_bands_to_frequency.return_value = [150]
-        kwargs = {'output_format': 'flux_density', 'bands': ['B']}
+        kwargs = {'output_format': 'flux_density', 'bands': ['Palomar/ZTF.g']}
         result = utils.check_kwargs_validity(kwargs)
         self.assertIn('frequency', result)
-        mock_bands_to_frequency.assert_called_with(['B'])
+        mock_bands_to_frequency.assert_called_with(np.array(['Palomar/ZTF.g'], dtype=object))
 
     @patch('redback.utils.frequency_to_bandname')
     def test_check_kwargs_validity_flux_adds_bands(self, mock_frequency_to_bandname):
@@ -287,42 +287,27 @@ class TestSomeUtility(unittest.TestCase):
         self.assertEqual(val, expected_val)
         self.assertEqual(idx, expected_idx)
 
-    @patch('pandas.read_csv')
-    def test_sncosmo_bandname_from_band(self, mock_read_csv):
-        # Create a mock DataFrame
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r', 'i', 'z'],
-            'sncosmo_name': ['sdssg', 'sdssr', 'sdssi', 'sdssz']
-        })
-        mock_read_csv.return_value = mock_df
-
-        # Test single band
-        self.assertTrue(np.array_equal(utils.sncosmo_bandname_from_band('r'), np.array(['sdssr'])))
-        # Test list of bands
-        self.assertTrue(np.array_equal(utils.sncosmo_bandname_from_band(['g', 'i']), np.array(['sdssg', 'sdssi'])))
-        # Test empty list
+    def test_sncosmo_bandname_from_band(self):
+        # Canonical SVO FPS IDs map to retained SNCosmo compatibility names.
+        self.assertTrue(np.array_equal(
+            utils.sncosmo_bandname_from_band('Palomar/ZTF.r'),
+            np.array(['ztfr'])))
+        self.assertTrue(np.array_equal(
+            utils.sncosmo_bandname_from_band(['Palomar/ZTF.g', 'Palomar/ZTF.i']),
+            np.array(['ztfg', 'ztfi'])))
         self.assertTrue(np.array_equal(utils.sncosmo_bandname_from_band([]), np.array([])))
-        # Test None input
         self.assertTrue(np.array_equal(utils.sncosmo_bandname_from_band(None), np.array([])))
 
-        # Test unknown band with default 'softest' warning (appends 'r')
-        with patch.object(utils.logger, 'info') as mock_log:
-            res = utils.sncosmo_bandname_from_band(['g', 'unknown', 'i'], warning_style='softest')
-            self.assertTrue(np.array_equal(res, np.array(['sdssg', 'r', 'sdssi'])))
-            # No logging expected for 'softest'
+        # SNCosmo aliases remain accepted as input for backwards compatibility.
+        self.assertTrue(np.array_equal(
+            utils.sncosmo_bandname_from_band('ztfr'),
+            np.array(['ztfr'])))
 
-        # Test unknown band with 'soft' warning (appends 'r', logs info)
-        with patch.object(utils.logger, 'info') as mock_log:
-            res = utils.sncosmo_bandname_from_band(['g', 'unknown', 'i'], warning_style='soft')
-            self.assertTrue(np.array_equal(res, np.array(['sdssg', 'r', 'sdssi'])))
-            self.assertGreaterEqual(mock_log.call_count, 1)  # Check if logger was called
-            # Check if the specific error message was logged (optional, depends on exact logging format)
-            # self.assertTrue(any("Band unknown is not defined" in call_args[0][0] for call_args in mock_log.call_args_list))
-
-        # Test unknown band with 'hard' warning (raises KeyError)
-        with self.assertRaises(KeyError) as cm:
-            utils.sncosmo_bandname_from_band(['g', 'unknown', 'i'], warning_style='hard')
-        self.assertIn("Band unknown is not defined", str(cm.exception))
+        # Unknown filters pass through in softest mode and raise in hard mode.
+        res = utils.sncosmo_bandname_from_band(['unknown'], warning_style='softest')
+        self.assertTrue(np.array_equal(res, np.array(['unknown'])))
+        with self.assertRaises(KeyError):
+            utils.sncosmo_bandname_from_band(['unknown'], warning_style='hard')
 
     def test_calc_tfb(self):
         # Example values (replace with realistic ones if known)
@@ -1054,135 +1039,71 @@ class TestFluxErrorFunctions(unittest.TestCase):
 
 
 class TestBandFunctions(unittest.TestCase):
-    """Test band-related lookup functions"""
+    """Test band-related lookup functions."""
 
-    @patch('pandas.read_csv')
-    def test_bands_to_zeropoint(self, mock_read_csv):
-        """Test bands to zeropoint conversion"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r', 'i'],
-            'reference_flux': [3631.0, 3000.0, 2500.0]
-        })
-        mock_read_csv.return_value = mock_df
-
-        result = utils.bands_to_zeropoint(['g'])
-
-        # Zeropoint is calculated as 10^(reference_flux / -2.5)
-        # For large reference_flux values, this will be very small (near 0)
-        # Just check that the function runs without error
+    @patch('redback.filters.filter_values')
+    def test_bands_to_zeropoint(self, mock_filter_values):
+        mock_filter_values.return_value = np.array([3631.0])
+        result = utils.bands_to_zeropoint(['Palomar/ZTF.g'])
         self.assertIsNotNone(result)
 
-    @patch('pandas.read_csv')
-    def test_bandpass_magnitude_to_flux(self, mock_read_csv):
-        """Test bandpass magnitude to flux conversion"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r'],
-            'reference_flux': [3631.0, 3000.0]
-        })
-        mock_read_csv.return_value = mock_df
-
-        magnitude = 20.0
-        bands = 'g'
-
-        result = utils.bandpass_magnitude_to_flux(magnitude, bands)
-
-        # Flux should be positive
+    @patch('redback.filters.filter_values')
+    def test_bandpass_magnitude_to_flux(self, mock_filter_values):
+        mock_filter_values.return_value = np.array([3631.0])
+        result = utils.bandpass_magnitude_to_flux(20.0, 'Palomar/ZTF.g')
         self.assertGreater(result, 0)
 
-    @patch('pandas.read_csv')
-    def test_bandpass_flux_to_magnitude(self, mock_read_csv):
-        """Test bandpass flux to magnitude conversion"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r'],
-            'reference_flux': [3631.0, 3000.0]
-        })
-        mock_read_csv.return_value = mock_df
-
-        flux = 100.0
-        bands = 'g'
-
-        result = utils.bandpass_flux_to_magnitude(flux, bands)
-
-        # Magnitude should be reasonable
+    @patch('redback.filters.filter_values')
+    def test_bandpass_flux_to_magnitude(self, mock_filter_values):
+        mock_filter_values.return_value = np.array([3631.0])
+        result = utils.bandpass_flux_to_magnitude(100.0, 'Palomar/ZTF.g')
         self.assertGreater(result, 0)
         self.assertLess(result, 30)
 
-    @patch('pandas.read_csv')
-    def test_bands_to_reference_flux(self, mock_read_csv):
-        """Test bands to reference flux lookup"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r', 'i'],
-            'reference_flux': [3631.0, 3000.0, 2500.0]
-        })
-        mock_read_csv.return_value = mock_df
-
-        # Test single band
-        result = utils.bands_to_reference_flux('g')
+    @patch('redback.filters.filter_values')
+    def test_bands_to_reference_flux(self, mock_filter_values):
+        mock_filter_values.side_effect = lambda bands, column: (
+            np.array([3631.0]) if isinstance(bands, str)
+            else np.array([3631.0, 3000.0])
+        )
+        result = utils.bands_to_reference_flux('Palomar/ZTF.g')
         np.testing.assert_array_equal(result, np.array([3631.0]))
-
-        # Test multiple bands
-        result = utils.bands_to_reference_flux(['g', 'r'])
+        result = utils.bands_to_reference_flux(['Palomar/ZTF.g', 'Palomar/ZTF.r'])
         np.testing.assert_array_equal(result, np.array([3631.0, 3000.0]))
 
-    @patch('pandas.read_csv')
-    def test_bands_to_reference_flux_invalid_band(self, mock_read_csv):
-        """Test with invalid band raises KeyError"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r'],
-            'reference_flux': [3631.0, 3000.0]
-        })
-        mock_read_csv.return_value = mock_df
-
+    @patch('redback.filters.filter_values')
+    def test_bands_to_reference_flux_invalid_band(self, mock_filter_values):
+        mock_filter_values.side_effect = KeyError('unknown filter')
         with self.assertRaises(KeyError):
             utils.bands_to_reference_flux(['unknown_band'])
 
-    @patch('pandas.read_csv')
-    def test_bands_to_frequency(self, mock_read_csv):
-        """Test bands to frequency conversion"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r', 'i'],
-            'wavelength [Hz]': [6.0e14, 5.0e14, 4.5e14]
-        })
-        mock_read_csv.return_value = mock_df
-
-        result = utils.bands_to_frequency(['g', 'r'])
+    @patch('redback.filters.filter_values')
+    def test_bands_to_frequency(self, mock_filter_values):
+        """Band metadata lookup delegates to the SVO-first filter provider."""
+        mock_filter_values.return_value = np.array([6.0e14, 5.0e14])
+        result = utils.bands_to_frequency(['Palomar/ZTF.g', 'Palomar/ZTF.r'])
         np.testing.assert_array_equal(result, np.array([6.0e14, 5.0e14]))
+        mock_filter_values.assert_called_once_with(
+            ['Palomar/ZTF.g', 'Palomar/ZTF.r'], 'wavelength [Hz]')
 
-    @patch('pandas.read_csv')
-    def test_bands_to_effective_width(self, mock_read_csv):
-        """Test bands to effective width conversion"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r', 'i'],
-            'effective_width [Hz]': [1.0e14, 1.2e14, 1.5e14]
-        })
-        mock_read_csv.return_value = mock_df
-
-        result = utils.bands_to_effective_width(['g', 'i'])
+    @patch('redback.filters.filter_values')
+    def test_bands_to_effective_width(self, mock_filter_values):
+        mock_filter_values.return_value = np.array([1.0e14, 1.5e14])
+        result = utils.bands_to_effective_width(['Palomar/ZTF.g', 'Palomar/ZTF.i'])
         np.testing.assert_array_equal(result, np.array([1.0e14, 1.5e14]))
+        mock_filter_values.assert_called_once_with(
+            ['Palomar/ZTF.g', 'Palomar/ZTF.i'], 'effective_width [Hz]')
 
-    @patch('pandas.read_csv')
-    def test_frequency_to_bandname(self, mock_read_csv):
-        """Test frequency to bandname conversion"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r', 'i'],
-            'wavelength [Hz]': [6.0e14, 5.0e14, 4.5e14]
-        })
-        mock_read_csv.return_value = mock_df
+    def test_frequency_to_bandname(self):
+        """The compatibility function now returns canonical SVO FPS IDs."""
+        table = redback.filters.show_all_filters().to_pandas()
+        row = table.loc[table['svofps_id'] == 'Palomar/ZTF.r'].iloc[0]
+        result = utils.frequency_to_bandname([row['wavelength [Hz]']])
+        np.testing.assert_array_equal(result, np.array(['Palomar/ZTF.r']))
 
-        result = utils.frequency_to_bandname([6.0e14, 4.5e14])
-        np.testing.assert_array_equal(result, np.array(['g', 'i']))
-
-    @patch('pandas.read_csv')
-    def test_frequency_to_bandname_invalid_frequency(self, mock_read_csv):
-        """Test with invalid frequency raises KeyError"""
-        mock_df = pd.DataFrame({
-            'bands': ['g', 'r'],
-            'wavelength [Hz]': [6.0e14, 5.0e14]
-        })
-        mock_read_csv.return_value = mock_df
-
+    def test_frequency_to_bandname_invalid_frequency(self):
         with self.assertRaises(KeyError):
-            utils.frequency_to_bandname([1.0e15])
+            utils.frequency_to_bandname([1.23456789012345e11])
 
 
 class TestStatisticalFunctions(unittest.TestCase):

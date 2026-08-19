@@ -83,7 +83,7 @@ class LasairDataGetter(DataGetter):
 
         raw_data = pd.read_csv(self.raw_file_path)
         raw_data = raw_data[raw_data['unforced mag status'] != 'limit']
-        lasair_to_general_bands = {"g": "ztfg", "r": "ztfr", "i":'ztfi'}
+        lasair_to_general_bands = {"g": "Palomar/ZTF.g", "r": "Palomar/ZTF.r", "i": "Palomar/ZTF.i"}
         processed_data = pd.DataFrame()
 
         processed_data["time"] = raw_data['MJD']

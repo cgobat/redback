@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # start_time = 55570
 # time = np.linspace(0.1, 65, 100) + start_time
 #
-# kwargs = {'frequency': 4e14, 'output_format': 'magnitude', 'bands':'ztfr'}
+# kwargs = {'frequency': 4e14, 'output_format': 'magnitude', 'bands':'Palomar/ZTF.r'}
 # outs = redback.transient_models.supernova_models.salt2(time=time, redshift=redshift, x0=1e-7, x1=0.9, c=0.3, peak_time=55589, **kwargs)
 #
 # # Let's plot.
@@ -38,7 +38,7 @@ priors['x0'] = bilby.core.prior.Uniform(1e-10, 1e-1, 'x0', latex_label=r'$x_0$')
 priors['x1'] = bilby.core.prior.Normal(0, 1, 'x1', latex_label=r'$x_1$')
 priors['c'] = bilby.core.prior.Normal(0, 0.1, 'c', latex_label=r'$c$')
 
-kwargs = {'bands': sn.filtered_sncosmo_bands, 'output_format': 'magnitude'}
+kwargs = {'bands': sn.filtered_bands, 'output_format': 'magnitude'}
 
 # Let's fit. Again the interface is similar to the normal interface for redback.
 result = redback.fit_model(transient=sn, model='salt2', prior=priors, model_kwargs=kwargs,

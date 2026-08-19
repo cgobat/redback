@@ -160,7 +160,7 @@ def download_pointing_tables():
 
 def sncosmo_bandname_from_band(bands, warning_style='softest'):
     """
-    Convert redback data band names to sncosmo compatible band names
+    Convert SVO FPS filter IDs to legacy SNCosmo compatibility names.
 
     :param bands: List of bands.
     :type bands: list[str]
@@ -168,60 +168,58 @@ def sncosmo_bandname_from_band(bands, warning_style='softest'):
     :return: An array of sncosmo compatible bandnames associated with the given bands.
     :rtype: np.ndarray
     """
+    from redback.filters import sncosmo_name_from_filter
+
     if bands is None:
-        bands = []
+        return np.array([])
     if isinstance(bands, str):
         bands = [bands]
-    df = pd.read_csv(f"{dirname}/tables/filters.csv")
-    bands_to_flux = {band: wavelength for band, wavelength in zip(df['bands'], df['sncosmo_name'])}
     res = []
     for band in bands:
         try:
-            res.append(bands_to_flux[band])
-        except KeyError as e:
+            res.append(sncosmo_name_from_filter(band))
+        except (KeyError, TypeError) as exc:
             if warning_style == 'hard':
-                raise KeyError(f"Band {band} is not defined in filters.csv!")
+                raise
             elif warning_style == 'soft':
-                logger.info(e)
-                logger.info(f"Band {band} is not defined in filters.csv!")
-                res.append('r')
-            else:
-                res.append('r')
-    return np.array(res)
+                logger.info(exc)
+                logger.info(f"Filter {band} does not have a matching SNCosmo name")
+            res.append(band)
+    return np.asarray(res)
 
 
 def check_kwargs_validity(kwargs):
     """
-    Check the validity of the kwargs passed to a model
+    Check the validity of the kwargs passed to a model.
 
-    :param kwargs: Additional keyword arguments passed to the model
-    :return: Validated kwargs dictionary
+    String-valued ``bands`` are normalized to canonical SVO FPS IDs.  Legacy
+    SNCosmo/Redback aliases remain accepted by the resolver.
     """
-    if kwargs == None:
+    if kwargs is None:
         logger.info("No kwargs passed to function")
         return kwargs
-    if 'output_format' not in kwargs.keys():
+    if 'output_format' not in kwargs:
         raise ValueError("output_format must be specified")
-    else:
-        output_format = kwargs['output_format']
-    match = ['frequency', 'bands']
-    if any(x in kwargs.keys() for x in match):
-        pass
-    else:
+    output_format = kwargs['output_format']
+
+    if 'frequency' not in kwargs and 'bands' not in kwargs:
         raise ValueError("frequency or bands must be specified in model_kwargs")
 
+    if 'bands' in kwargs and kwargs['bands'] is not None:
+        from redback.filters import canonicalize_filter_ids
+        kwargs['bands'] = canonicalize_filter_ids(kwargs['bands'], warn_alias=False)
+
     if output_format == 'flux_density':
-        if 'frequency' not in kwargs.keys():
-            kwargs['frequency'] = redback.utils.bands_to_frequency(kwargs['bands'])
+        if 'frequency' not in kwargs:
+            kwargs['frequency'] = bands_to_frequency(kwargs['bands'])
 
     if output_format in ['flux', 'magnitude']:
-        if 'bands' not in kwargs.keys():
-            kwargs['bands'] = redback.utils.frequency_to_bandname(kwargs['frequency'])
+        if 'bands' not in kwargs:
+            kwargs['bands'] = frequency_to_bandname(kwargs['frequency'])
 
     if output_format == 'spectra':
         kwargs['frequency_array'] = kwargs.get('frequency_array', np.linspace(100, 20000, 100))
     return kwargs
-
 
 def citation_wrapper(r):
     """
@@ -852,98 +850,50 @@ def bandpass_flux_to_magnitude(flux, bands):
 
 
 def bands_to_reference_flux(bands):
-    """
-    Looks up the reference flux for a given band from the filters table.
-
-    :param bands: List of bands.
-    :type bands: list[str]
-    :return: An array of reference flux associated with the given bands.
-    :rtype: np.ndarray
-    """
-    if bands is None:
-        bands = []
-    if isinstance(bands, str):
-        bands = [bands]
-    df = pd.read_csv(f"{dirname}/tables/filters.csv")
-    bands_to_flux = {band: wavelength for band, wavelength in zip(df['bands'], df['reference_flux'])}
-    res = []
-    for band in bands:
-        try:
-            res.append(bands_to_flux[band])
-        except KeyError as e:
-            logger.info(e)
-            raise KeyError(f"Band {band} is not defined in filters.csv!")
-    return np.array(res)
+    """Return reference fluxes for SVO FPS filter IDs or compatibility aliases."""
+    from redback.filters import filter_values
+    return filter_values(bands, 'reference_flux').astype(float)
 
 
 def bands_to_frequency(bands):
-    """
-    Converts a list of bands into an array of frequency in Hz
+    """Return effective frequencies for SVO FPS filter IDs or compatibility aliases."""
+    from redback.filters import filter_values
+    return filter_values(bands, 'wavelength [Hz]').astype(float)
 
-    :param bands: List of bands.
-    :type bands: list[str]
-    :return: An array of frequency associated with the given bands.
-    :rtype: np.ndarray
-    """
-    if bands is None:
-        bands = []
-    df = pd.read_csv(f"{dirname}/tables/filters.csv")
-    bands_to_freqs = {band: wavelength for band, wavelength in zip(df['bands'], df['wavelength [Hz]'])}
-    res = []
-    for band in bands:
-        try:
-            res.append(bands_to_freqs[band])
-        except KeyError as e:
-            logger.info(e)
-            raise KeyError(f"Band {band} is not defined in filters.csv!")
-    return np.array(res)
 
 def bands_to_effective_width(bands):
-    """
-    Converts a list of bands into an array of effective width in Hz
+    """Return effective widths in Hz for SVO FPS filter IDs or compatibility aliases."""
+    from redback.filters import filter_values
+    return filter_values(bands, 'effective_width [Hz]').astype(float)
 
-    :param bands: List of bands.
-    :type bands: list[str]
-    :return: An array of effective width associated with the given bands.
-    :rtype: np.ndarray
-    """
-    if bands is None:
-        bands = []
-    df = pd.read_csv(f"{dirname}/tables/filters.csv")
-    bands_to_freqs = {band: wavelength for band, wavelength in zip(df['bands'], df['effective_width [Hz]'])}
-    res = []
-    for band in bands:
+
+def frequency_to_filter_id(frequency):
+    """Convert exact table frequencies to canonical SVO FPS filter IDs."""
+    if frequency is None:
+        return np.array([])
+    if np.isscalar(frequency):
+        frequency = [frequency]
+
+    from redback.filters import show_all_filters
+    df = show_all_filters().to_pandas()
+    frequency_to_id = {float(freq): svo for freq, svo in zip(df['wavelength [Hz]'], df['svofps_id'])}
+    result = []
+    for freq in frequency:
         try:
-            res.append(bands_to_freqs[band])
-        except KeyError as e:
-            logger.info(e)
-            raise KeyError(f"Band {band} is not defined in filters.csv!")
-    return np.array(res)
+            result.append(frequency_to_id[float(freq)])
+        except KeyError as exc:
+            logger.info(exc)
+            raise KeyError(f"Frequency {freq} is not defined in filters.csv!")
+    return np.asarray(result)
 
 
 def frequency_to_bandname(frequency):
+    """Deprecated alias for :func:`frequency_to_filter_id`.
+
+    The returned values are canonical SVO FPS IDs, not historical Redback
+    ``bands`` values.
     """
-    Converts a list of frequencies into an array corresponding band names
-
-    :param frequency: List of bands.
-    :type frequency: list[str]
-    :return: An array of bandnames associated with the given frequency.
-    :rtype: np.ndarray
-    """
-    if frequency is None:
-        frequency = []
-    df = pd.read_csv(f"{dirname}/tables/filters.csv")
-    freqs_to_bands = {wavelength: band for wavelength, band in zip(df['wavelength [Hz]'], df['bands'])}
-    res = []
-    for freq in frequency:
-        try:
-            res.append(freqs_to_bands[freq])
-        except KeyError as e:
-            logger.info(e)
-            raise KeyError(f"Wavelength {freq} is not defined in filters.csv!")
-    return np.array(res)
-
-
+    return frequency_to_filter_id(frequency)
 
 
 def calc_credible_intervals(samples, interval=0.9):

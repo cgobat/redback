@@ -64,7 +64,7 @@ from lightcurvelynx import _LIGHTCURVELYNX_BASE_DATA_DIR
 # 1. Load OpSim and passbands (shared by both simulations)
 # ---------------------------------------------------------------------------
 filters = ["g", "r", "i", "z"]
-band_mapping = {"g": "lsstg", "r": "lsstr", "i": "lssti", "z": "lsstz"}
+band_mapping = {"g": "LSST/LSST.g", "r": "LSST/LSST.r", "i": "LSST/LSST.i", "z": "LSST/LSST.z"}
 
 opsim_db = OpSim.from_db(_LIGHTCURVELYNX_BASE_DATA_DIR / "opsim" / "baseline_v3.4_10yrs.db")
 filter_mask = np.isin(opsim_db["filter"], filters)

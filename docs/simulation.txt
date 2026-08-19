@@ -552,7 +552,7 @@ so the full library of :code:`redback` physical models can be used directly insi
   scientifically useful for constraining :code:`t0`.  Requires lightcurvelynx >= 0.4.3.
 
 - **Filter names**: LightCurveLynx uses short names (e.g. :code:`'g'`, :code:`'r'`); :code:`redback` expects
-  survey-qualified names (e.g. :code:`'lsstg'`, :code:`'lsstr'`). Remap the filter column before calling
+  canonical SVO FPS IDs (e.g. :code:`'LSST/LSST.g'`, :code:`'LSST/LSST.r'`). Remap the filter column before calling
   :code:`from_lightcurvelynx`.
 
 - **Non-detections**: :code:`results_augment_lightcurves` flags sub-threshold observations as

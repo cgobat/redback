@@ -205,7 +205,7 @@ class Transient(object):
         :type frequency: np.ndarray, optional
         :param system: System values.
         :type system: np.ndarray, optional
-        :param bands: Band values.
+        :param bands: Bandpass/filter identifiers. SVO FPS IDs are canonical; SNCosmo/legacy aliases are also accepted.
         :type bands: np.ndarray, optional
         :param active_bands: List or array of active bands to be used in the analysis.
                              Use all available bands if 'all' is given.
@@ -705,15 +705,17 @@ class Transient(object):
 
     def set_bands_and_frequency(
             self, bands: Union[None, list, np.ndarray], frequency: Union[None, list, np.ndarray]):
-        """Sets bands and frequencies at the same time to keep the logic consistent. If both are given use those values.
-        If only frequencies are given, use them also as band names.
-        If only bands are given, try to convert them to frequencies.
+        """Set filter identifiers and frequencies together.
 
-        :param bands: The bands, e.g. ['g', 'i'].
+        :param bands: Filter identifiers, e.g. ``['Palomar/ZTF.g', 'Palomar/ZTF.i']``.
         :type bands: Union[None, list, np.ndarray]
-        :param frequency: The frequencies associated with the bands i.e., the effective frequency.
+        :param frequency: Frequencies associated with the filters in Hz.
         :type frequency: Union[None, list, np.ndarray]
         """
+        if bands is not None and self.bands_to_frequency is redback.utils.bands_to_frequency:
+            from redback.filters import canonicalize_filter_ids
+            bands = canonicalize_filter_ids(bands, warn_alias=True)
+
         if (bands is None and frequency is None) or (bands is not None and frequency is not None):
             self._bands = bands
             self._frequency = frequency
@@ -758,11 +760,22 @@ class Transient(object):
 
     @property
     def filtered_sncosmo_bands(self) -> np.array:
-        """
-        :return: The sncosmo bands only associated with the active bands.
-        :rtype: np.ndarray
+        """Return legacy SNCosmo compatibility names for active filters.
+
+        Retained for backwards compatibility. New code should use :attr:`filtered_bands`,
+        whose values are SVO FPS IDs.
         """
         return self.sncosmo_bands[self.filtered_indices]
+
+    @property
+    def svofps_ids(self) -> np.array:
+        """Canonical SVO FPS identifiers associated with the data."""
+        return self.bands
+
+    @property
+    def filtered_svofps_ids(self) -> np.array:
+        """Canonical SVO FPS identifiers associated with active filters."""
+        return self.filtered_bands
 
     @property
     def filtered_bands(self) -> np.array:
@@ -789,6 +802,12 @@ class Transient(object):
         """
         if str(active_bands) == 'all':
             self._active_bands = list(np.unique(self.bands))
+        elif active_bands is None:
+            self._active_bands = active_bands
+        elif self.bands_to_frequency is redback.utils.bands_to_frequency:
+            from redback.filters import canonicalize_filter_ids
+            normalized = canonicalize_filter_ids(active_bands, warn_alias=True)
+            self._active_bands = [normalized] if isinstance(normalized, str) else list(normalized)
         else:
             self._active_bands = active_bands
 
@@ -949,7 +968,8 @@ class Transient(object):
         :return: Default list of filters to use.
         :rtype: list
         """
-        return ["g", "r", "i", "z", "y", "J", "H", "K"]
+        return ["PAN-STARRS/PS1.g", "PAN-STARRS/PS1.r", "PAN-STARRS/PS1.i", "PAN-STARRS/PS1.z", "PAN-STARRS/PS1.y",
+                "2MASS/2MASS.J", "2MASS/2MASS.H", "2MASS/2MASS.K"]
 
     @staticmethod
     def get_colors(filters: Union[np.ndarray, list]) -> matplotlib.colors.Colormap:
@@ -1392,7 +1412,7 @@ class OpticalTransient(Transient):
         :type photon_index: float, optional
         :param frequency: Array of band frequencies in photometry data.
         :type frequency: np.ndarray, optional
-        :param bands: Band values.
+        :param bands: Bandpass/filter identifiers. SVO FPS IDs are canonical; retained SNCosmo/legacy aliases are also accepted.
         :type bands: np.ndarray, optional
         :param system: System values.
         :type system: np.ndarray, optional
@@ -1643,8 +1663,8 @@ class OpticalTransient(Transient):
         use_bandpass = False
         if hasattr(self, "data_mode") and self.data_mode in ['flux', 'magnitude']:
             use_bandpass = True
-            # Assume self.filtered_sncosmo_bands contains the (string) band names.
-            band_data = self.filtered_sncosmo_bands
+            # ``filtered_bands`` contains canonical SVO FPS filter IDs.
+            band_data = self.filtered_bands
         else:
             # Otherwise the flux data and frequencies are assumed to be given.
             redback.utils.logger.info("Using effective wavelength approximation for {}".format(self.data_mode))
@@ -1895,7 +1915,7 @@ class OpticalTransient(Transient):
         redback.utils.logger.info("Using data mode = {}".format(self.data_mode))
 
         if hasattr(self, "data_mode") and self.data_mode in ['flux', 'magnitude']:
-            band_data = self.filtered_sncosmo_bands
+            band_data = self.filtered_bands
             redback.utils.logger.warning(
                 "Using effective wavelength approximation for cutoff_blackbody fits in {} mode.".format(
                     self.data_mode))

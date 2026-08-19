@@ -1,5 +1,6 @@
 import numpy as np
 from redback.sed import RedbackTimeSeriesSource
+from redback.filters import sncosmo_bandmag
 import redback
 import pandas as pd
 from redback.utils import logger, calc_flux_density_error_from_monochromatic_magnitude, calc_flux_density_from_ABmag
@@ -1102,7 +1103,7 @@ class SimulateOpticalTransient(object):
         """
         times = overlapping_database['expMJD'].values - t0_transient
         filters = overlapping_database['filter'].values
-        magnitude = sncosmo_model.bandmag(phase=times, band=filters, magsys='AB')
+        magnitude = sncosmo_bandmag(sncosmo_model, phase=times, filters=filters, magsys='ab')
         flux = redback.utils.bandpass_magnitude_to_flux(magnitude=magnitude, bands=filters)
         ref_flux = redback.utils.bands_to_reference_flux(filters)
         bandflux_errors = redback.utils.bandflux_error_from_limiting_mag(overlapping_database['fiveSigmaDepth'].values,
@@ -1987,7 +1988,7 @@ class PopulationSynthesizer(object):
         :param time_range: Tuple of (start_mjd, end_mjd) for event times
         :param include_selection_effects: Whether to apply detection efficiency cuts
         :param survey_config: Dictionary with survey parameters for selection effects
-            Example: {'limiting_mag': 22.5, 'bands': ['lsstr'], 'area_sqdeg': 18000}
+            Example: {'limiting_mag': 22.5, 'bands': ['LSST/LSST.r'], 'area_sqdeg': 18000}
         :param include_lightcurves: Whether to generate light curves (expensive)
         :param model_kwargs: Additional kwargs to pass to model
         :param rate_weighted_redshifts: If True (default), sample redshifts weighted by

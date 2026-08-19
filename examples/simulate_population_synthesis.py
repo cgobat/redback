@@ -101,7 +101,7 @@ synth_lsst = PopulationSynthesizer(
 # Define survey configuration (LSST-like)
 lsst_config = {
     'limiting_mag': 24.5,  # 5-sigma depth in r-band
-    'bands': ['lsstr'],
+    'bands': ['LSST/LSST.r'],
     'area_sqdeg': 18000  # Full survey area
 }
 

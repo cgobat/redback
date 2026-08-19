@@ -6,10 +6,10 @@ from redback.simulate_transients import SimulateOpticalTransient
 # We first set up a table that contains the pointings of the telescope. 
 # This requires setting the number of observations in each filter, average cadence, the cadence scatter, 
 # and the limiting magnitudes for each filter.
-num_obs = {'lsstg': 10, 'lsstr':10, 'lssti':10}
-average_cadence = {'lsstg': 1.5, 'lsstr': 5.0, 'lssti': 2.5}
-cadence_scatter = {'lsstg': 0.5, 'lsstr':0.5, 'lssti':0.5}
-limiting_magnitudes = {'lsstg': 25.0, 'lsstr': 24.5, 'lssti': 23.0}
+num_obs = {'LSST/LSST.g': 10, 'LSST/LSST.r':10, 'LSST/LSST.i':10}
+average_cadence = {'LSST/LSST.g': 1.5, 'LSST/LSST.r': 5.0, 'LSST/LSST.i': 2.5}
+cadence_scatter = {'LSST/LSST.g': 0.5, 'LSST/LSST.r':0.5, 'LSST/LSST.i':0.5}
+limiting_magnitudes = {'LSST/LSST.g': 25.0, 'LSST/LSST.r': 24.5, 'LSST/LSST.i': 23.0}
 
 # We now use redback to make a pointings table from the above information
 pointings = redback.simulate_transients.make_pointing_table_from_average_cadence(

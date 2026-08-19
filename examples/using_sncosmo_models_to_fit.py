@@ -34,7 +34,7 @@ plt.semilogy(time - start_time, outs, label='salt2')
 plt.show()
 
 # We can also call the model to evaluate magnitudes instead of flux densities.
-kwargs = {'sncosmo_model': sncosmo_model, 'bands': 'ztfr', 'output_format': 'magnitude'}
+kwargs = {'sncosmo_model': sncosmo_model, 'bands': 'Palomar/ZTF.r', 'output_format': 'magnitude'}
 kwargs['peak_time'] = 55589.0
 outs = redback.transient_models.supernova_models.sncosmo_models(time=time, redshift=redshift,
                                                                 model_kwargs=model_kwargs, **kwargs)
@@ -76,7 +76,7 @@ priors['c'] = bilby.core.prior.Normal(0, 0.1, 'c', latex_label=r'$c$')
 
 # We set up a dictionary for any kwargs required by redback.
 # To make sure redback understands which keywords are model parameters, we need to pass an extra list with the names of the model parameters.
-kwargs = {'sncosmo_model': sncosmo_model, 'bands': sn.filtered_sncosmo_bands, 'output_format': 'magnitude',
+kwargs = {'sncosmo_model': sncosmo_model, 'bands': sn.filtered_bands, 'output_format': 'magnitude',
           'model_kwarg_names': ['x0', 'x1', 'c']}
 
 # Let's fit. Again the interface is similar to the normal interface for redback.
@@ -98,7 +98,7 @@ redshift = 0.1
 start_time = 55570
 time = np.linspace(0.1, 65, 100) + start_time
 
-kwargs = {'output_format': 'magnitude', 'bands':'ztfr'}
+kwargs = {'output_format': 'magnitude', 'bands':'Palomar/ZTF.r'}
 outs = redback.transient_models.supernova_models.salt2(time=time, redshift=redshift, x0=1e-7, x1=0.9, c=0.3, peak_time=55589, **kwargs)
 
 # Where outs is just an array of magnitudes.
@@ -130,7 +130,7 @@ priors['c'] = bilby.core.prior.Normal(0, 0.1, 'c', latex_label=r'$c$')
 # These parameters are also available as a default prior for the salt2 model.
 # The access is similar to how it is for every other redback model. But please update the default prior to t0/peaktime values relevant to your data.
 
-kwargs = {'bands': sn.filtered_sncosmo_bands, 'output_format': 'magnitude'}
+kwargs = {'bands': sn.filtered_bands, 'output_format': 'magnitude'}
 
 # Let's fit. Again the interface is similar to the normal interface for redback.
 result = redback.fit_model(transient=sn, model='salt2', prior=priors, model_kwargs=kwargs,

@@ -23,7 +23,7 @@ tts = np.linspace(0.1, 400, 40)
 
 parameters = {}
 parameters['output_format'] = 'magnitude'
-parameters['bands'] = np.repeat('ztfg', len(tts))
+parameters['bands'] = np.repeat('Palomar/ZTF.g', len(tts))
 parameters['kappa'] = kappa
 parameters['kappa_gamma'] = kappa_gamma
 parameters['f_nickel'] = f_nickel
@@ -61,7 +61,7 @@ sn.plot_data()
 
 # Let's set up the likelihood
 
-model_kwargs = {'bands':sn.sncosmo_bands, 'output_format':'magnitude'}
+model_kwargs = {'bands':sn.bands, 'output_format':'magnitude'}
 likelihood = redback.likelihoods.MixtureGaussianLikelihood(x=sn.x, y=sn.y,
                                                            sigma=sn.y_err,
                                                           function=func,
@@ -97,7 +97,7 @@ for x in range(random_samples):
     ss = result.posterior.iloc[np.random.randint(len(result.posterior))]
     ss['output_format'] = 'magnitude'
     function = func
-    ss['bands'] = sn.filtered_sncosmo_bands
+    ss['bands'] = sn.filtered_bands
     model_prediction = function(sn.x, **ss)
     post[x] = likelihood.calculate_outlier_posteriors(model_prediction)
 

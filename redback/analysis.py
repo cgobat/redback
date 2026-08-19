@@ -132,7 +132,7 @@ def plot_spectrum(model, parameters, time_to_plot, axes=None, **kwargs):
     model_kwargs = {}
     model_kwargs.update(parameters)
     model_kwargs['output_format'] = 'spectra'
-    model_kwargs['bands'] = 'lsstg'
+    model_kwargs['bands'] = 'LSST/LSST.g'
     output = function(time_to_plot, **model_kwargs)
     lambdas = output.lambdas
     time_of_output = output.time/day_to_s

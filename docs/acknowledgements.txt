@@ -34,8 +34,11 @@ In several cases, the citation will be `redback`, in which case,
 only a citation to :code:`redback`, :code:`bilby`, and the sampler is necessary.
 Although we recommend periodically checking the citation in the latest :code:`redback` release.
 
-For optical transients (if you fit in magnitudes/flux), we request that you also cite `SNCosmo <https://sncosmo.readthedocs.io/en/stable/index.html>`_ as that is used to convert redback
-spectra to magnitudes and integrated bandpass flux.
+For optical transients (if you fit in magnitudes/flux), Redback sources filter transmission curves from the
+`SVO Filter Profile Service <http://svo2.cab.inta-csic.es/theory/fps/>`_. Please acknowledge/cite SVO FPS as appropriate
+for the filters used in your analysis. `SNCosmo <https://sncosmo.readthedocs.io/en/stable/index.html>`_ is retained for
+spectral time-series interpolation, magnitude-system calculations, and interfaces to SNCosmo transient models, so it
+should also be cited when those components are used.
 
 Using :code:`redback` to simulate transients
 -------------------------

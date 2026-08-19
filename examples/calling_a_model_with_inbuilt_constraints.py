@@ -37,7 +37,7 @@ redshift = 0.01
 for x in range(len(samples)):
     kwargs = samples.iloc[x]
     kwargs['output_format'] = 'magnitude'
-    kwargs['bands'] = ['lsstg']
+    kwargs['bands'] = ['LSST/LSST.g']
     mag = function(time, **kwargs)
     plt.plot(time, mag)
 plt.ylim(21, 30)
