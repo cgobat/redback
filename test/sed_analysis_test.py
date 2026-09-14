@@ -84,6 +84,25 @@ class TestSEDResult(unittest.TestCase):
         self.assertEqual(2, len(self.result.plot_evolution()))
         self.assertIsNotNone(self.result.integrate().plot_evolution())
 
+    def test_band_magnitude_diagnostic_is_frequency_ordered_and_inverted(self):
+        bands = np.array(["ztfg", "ztfi", "ztfr"])
+        observed = np.array([20.0, 18.0, 19.0])
+        self.success.coordinates = bands
+        self.success.observed = observed
+        self.success.observed_error = np.array([0.3, 0.1, 0.2])
+        self.success.context = {"coordinate_type": "band", "data_mode": "magnitude"}
+        model_magnitudes = {"ztfg": 20.5, "ztfi": 18.5, "ztfr": 19.5}
+        self.model.evaluate_photometry = lambda coordinates, parameters, context: (
+            np.array([model_magnitudes[band] for band in coordinates]))
+
+        ax = self.result.plot_epoch(0)
+
+        order = np.argsort(redback.utils.bands_to_frequency(bands))
+        np.testing.assert_array_equal(ax.lines[0].get_xdata(), bands[order])
+        np.testing.assert_array_equal(ax.lines[0].get_ydata(), observed[order])
+        np.testing.assert_array_equal(ax.lines[1].get_xdata(), bands[order])
+        self.assertTrue(ax.yaxis_inverted())
+
     def test_failed_epoch_cannot_be_plotted(self):
         with self.assertRaisesRegex(ValueError, "unsuccessful epoch"):
             self.result.plot_epoch(1)

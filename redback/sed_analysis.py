@@ -267,13 +267,24 @@ class SEDResult:
         coordinates = np.asarray(selected.coordinates)
         model_values = self.model.evaluate_photometry(
             coordinates, selected.parameters, selected.context)
-        order = np.argsort(coordinates)
+        if selected.context.get("coordinate_type") == "band":
+            frequencies = np.asarray(bands_to_frequency(coordinates), dtype=float)
+            order = np.argsort(frequencies)
+        else:
+            order = np.argsort(coordinates)
+        observed = np.asarray(selected.observed)
+        observed_error = selected.observed_error
+        if observed_error is not None and np.ndim(observed_error) > 0:
+            observed_error = np.take(np.asarray(observed_error), order, axis=-1)
         ax.errorbar(
-            coordinates, selected.observed, yerr=selected.observed_error,
+            coordinates[order], observed[order], yerr=observed_error,
             fmt=kwargs.pop("fmt", "o"), label=kwargs.pop("data_label", "data"))
         ax.plot(
             coordinates[order], np.asarray(model_values)[order],
             label=kwargs.pop("model_label", self.method), **kwargs)
+        magnitude_data = selected.context.get("data_mode") == "magnitude"
+        if magnitude_data and not ax.yaxis_inverted():
+            ax.invert_yaxis()
         ax.legend()
         return ax
 
