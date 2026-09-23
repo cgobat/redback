@@ -179,6 +179,36 @@ class TestExtinctionWithSupernovaBaseModel(unittest.TestCase):
             TIME, av_host=0.5, base_model='arnett', **kwargs)
         self.assertTrue(np.all(np.isfinite(result)))
 
+    def test_spectra_output_with_lambda_array(self):
+        lambda_array = np.linspace(3000.0, 8000.0, 20)
+        kwargs = _base_kwargs(output_format='spectra')
+        kwargs['lambda_array'] = lambda_array
+        result = extinction_with_supernova_base_model(
+            TIME, av_host=0.5, base_model='arnett', **kwargs)
+
+        np.testing.assert_array_equal(result.lambdas, lambda_array)
+        self.assertEqual(result.spectra.shape[-1], len(lambda_array))
+        self.assertTrue(np.all(np.isfinite(result.spectra)))
+
+    @mock.patch(
+        'redback.transient_models.extinction_models.sed.'
+        'get_correct_output_format_from_spectra')
+    def test_lambda_array_with_non_spectral_output(self, mock_output_formatter):
+        lambda_array = np.linspace(3000.0, 8000.0, 20)
+        expected = np.arange(len(TIME), dtype=float)
+        mock_output_formatter.return_value = expected
+
+        kwargs = _base_kwargs(output_format='magnitude')
+        kwargs['lambda_array'] = lambda_array
+        kwargs['bands'] = np.full(len(TIME), 'ztfg')
+        result = extinction_with_supernova_base_model(
+            TIME, av_host=0.5, base_model='arnett', **kwargs)
+
+        np.testing.assert_array_equal(result, expected)
+        np.testing.assert_array_equal(
+            mock_output_formatter.call_args.kwargs['lambda_array'],
+            lambda_array)
+
     def test_bad_base_model_raises(self):
         kwargs = _base_kwargs()
         with self.assertRaises(ValueError):

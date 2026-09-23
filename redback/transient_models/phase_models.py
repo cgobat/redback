@@ -57,6 +57,8 @@ def t0_base_model(time, t0, **kwargs):
         kwargs['base_model'] = kwargs.get('submodel', 'arnett_bolometric')
     temp_kwargs = _mask_per_epoch_kwargs(kwargs, valid_time)
     output_real = function(transient_time, **temp_kwargs)
+    if kwargs['output_format'] == 'spectra':
+        return output_real
     if kwargs['output_format'] == 'magnitude':
         output_fake = np.zeros(len(bad_time)) + 1000
     else:
@@ -90,6 +92,10 @@ def _t0_with_extinction(time, t0, av_host, model_type='supernova', **kwargs):
     bad_time = time[~valid_time]
     temp_kwargs = _mask_per_epoch_kwargs(kwargs, valid_time)
     output_real = function(transient_time, av_host=av_host, **temp_kwargs)
+    if kwargs['output_format'] == 'spectra':
+        output.time = time
+        output.observable = output_real
+        return output
     if kwargs['output_format'] == 'magnitude':
         output_fake = np.zeros(len(bad_time)) + 5000
     else:

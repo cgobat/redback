@@ -245,12 +245,18 @@ def _evaluate_extinction_model(time, av_host, av_mw=0.0, model_type=None, **kwar
             **kwargs
         )
 
+        if kwargs['output_format'] == 'spectra':
+            return spectra_tuple._replace(spectra=flux_density)
+
+        output_kwargs = kwargs.copy()
+        output_kwargs.pop('lambda_array', None)
+
         return sed.get_correct_output_format_from_spectra(
             time=time_obs,
             time_eval=time_observer_frame,
             spectra=flux_density,
             lambda_array=lambdas,
-            **kwargs
+            **output_kwargs
         )
 
 @citation_wrapper('redback')

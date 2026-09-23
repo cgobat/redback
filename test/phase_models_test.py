@@ -34,6 +34,24 @@ class TestPhaseModels(unittest.TestCase):
         np.testing.assert_array_equal(model.call_args.kwargs["frequency"], [2.0, 3.0])
         self.assertEqual(5.0, model.call_args.kwargs["peak_time"])
 
+    def test_t0_base_model_supports_spectra(self):
+        spectra = SimpleNamespace(
+            time=np.array([0.1, 1.0]),
+            lambdas=np.array([4000.0, 5000.0]),
+            spectra=np.ones((2, 2)))
+        model = unittest.mock.Mock(return_value=spectra)
+
+        with patch.dict(
+                'redback.model_library.all_models_dict',
+                {'phase_test': model}):
+            result = phase_models.t0_base_model(
+                np.array([60001.0]), t0=60000.0,
+                base_model='phase_test', output_format='spectra')
+
+        np.testing.assert_array_equal(result.time, spectra.time)
+        np.testing.assert_array_equal(result.lambdas, spectra.lambdas)
+        np.testing.assert_array_equal(result.spectra, spectra.spectra)
+
     def test_t0_base_model_uses_faint_magnitude_before_start(self):
         model = unittest.mock.Mock(return_value=np.array([20.0]))
         with patch.dict("redback.model_library.all_models_dict", {"phase_test": model}):
@@ -96,6 +114,26 @@ class TestPhaseModels(unittest.TestCase):
         np.testing.assert_array_equal(result.time, [-1.0, 0.0, 1.0])
         np.testing.assert_array_equal(result.observable, [5000.0, 2.0, 3.0])
         np.testing.assert_array_equal(extinction_model.call_args.kwargs["bands"], ["r", "i"])
+
+    def test_t0_extinction_wrapper_supports_spectra(self):
+        spectra = SimpleNamespace(
+            time=np.array([0.1, 1.0]),
+            lambdas=np.array([4000.0, 5000.0]),
+            spectra=np.ones((2, 2)))
+        extinction_model = unittest.mock.Mock(return_value=spectra)
+
+        with patch.dict(
+                phase_models.extinction_model_functions,
+                {'supernova': extinction_model}):
+            result = phase_models.t0_supernova_extinction(
+                np.array([60001.0]), t0=60000.0, av_host=0.2,
+                output_format='spectra')
+
+        np.testing.assert_array_equal(result.time, spectra.time)
+        np.testing.assert_array_equal(result.lambdas, spectra.lambdas)
+        np.testing.assert_array_equal(result.spectra, spectra.spectra)
+        np.testing.assert_array_equal(
+            extinction_model.call_args.args[0], np.array([1.0]))
 
     def test_dust_to_gas_wrapper_supports_flux_and_magnitude(self):
         with patch.object(
